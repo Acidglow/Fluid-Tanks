@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GTG",
+    "TAT",
+    "GTG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "T": "minecraft:emerald",
+    "A": "acidglowsfluidtanks:diamond_fluid_tank"
+  },
+  "result": {
+    "id": "acidglowsfluidtanks:emerald_fluid_tank"
+  }
+}

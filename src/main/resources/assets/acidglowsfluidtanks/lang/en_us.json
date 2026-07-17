@@ -1,0 +1,13 @@
+{
+  "itemGroup.acidglowsfluidtanks": "Acidglow's Fluid Tanks",
+  "block.acidglowsfluidtanks.copper_fluid_tank": "Copper Fluid Tank",
+  "block.acidglowsfluidtanks.iron_fluid_tank": "Iron Fluid Tank",
+  "block.acidglowsfluidtanks.gold_fluid_tank": "Gold Fluid Tank",
+  "block.acidglowsfluidtanks.diamond_fluid_tank": "Diamond Fluid Tank",
+  "block.acidglowsfluidtanks.emerald_fluid_tank": "Emerald Fluid Tank",
+  "block.acidglowsfluidtanks.netherite_fluid_tank": "Netherite Fluid Tank",
+  "acidglowsfluidtanks.configuration.title": "Acidglow's Fluid Tanks Config",
+  "acidglowsfluidtanks.configuration.section.acidglowsfluidtanks.common.toml": "Acidglow's Fluid Tanks Config",
+  "acidglowsfluidtanks.configuration.section.acidglowsfluidtanks.common.toml.title": "Acidglow's Fluid Tanks Config",
+  "acidglowsfluidtanks.configuration.capacityMultiplier": "Capacity Multiplier"
+}

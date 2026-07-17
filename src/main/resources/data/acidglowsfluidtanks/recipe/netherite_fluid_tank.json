@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GTG",
+    "TAT",
+    "GTG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "T": "minecraft:netherite_ingot",
+    "A": "acidglowsfluidtanks:emerald_fluid_tank"
+  },
+  "result": {
+    "id": "acidglowsfluidtanks:netherite_fluid_tank"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GTG",
+    "TAT",
+    "GTG"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "T": "minecraft:gold_ingot",
+    "A": "acidglowsfluidtanks:iron_fluid_tank"
+  },
+  "result": {
+    "id": "acidglowsfluidtanks:gold_fluid_tank"
+  }
+}
