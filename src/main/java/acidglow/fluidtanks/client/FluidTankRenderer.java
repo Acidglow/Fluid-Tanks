@@ -22,8 +22,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
     static final Identifier LAVA_TEXTURE = Identifier.withDefaultNamespace("textures/block/lava_still.png");
     static final float MIN = 0.1875F;
     static final float MAX = 0.8125F;
-    static final float BOTTOM = 0.125F;
-    static final float TOP = 0.875F;
+    static final float BOTTOM = 0.0F;
+    static final float TOP = 1.0F;
 
     public FluidTankRenderer(BlockEntityRendererProvider.Context context) {
     }
