@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -84,26 +85,13 @@ public class FluidTankBlockEntity extends BlockEntity {
         }
 
         TankNetwork network = network(resource);
-        if (network.amount() <= 0 || capacity() <= 0) {
+        int tankCapacity = capacity();
+        if (network.amount() <= 0 || tankCapacity <= 0) {
             return 0.0F;
         }
 
-        List<FluidTankBlockEntity> tanks = new ArrayList<>(network.tanks());
-        tanks.sort(Comparator
-                .comparingInt((FluidTankBlockEntity tank) -> tank.getBlockPos().getY())
-                .thenComparing(FluidTankBlockEntity::getBlockPos));
-
-        int remaining = network.amount();
-        for (FluidTankBlockEntity tank : tanks) {
-            int tankCapacity = tank.capacity();
-            if (tank == this) {
-                int localAmount = Math.min(Math.max(remaining, 0), tankCapacity);
-                return tankCapacity <= 0 ? 0.0F : (float) localAmount / (float) tankCapacity;
-            }
-            remaining -= tankCapacity;
-        }
-
-        return 0.0F;
+        int localAmount = layeredAmounts(network).getOrDefault(this, 0);
+        return (float) localAmount / (float) tankCapacity;
     }
 
     public void consolidateNetwork() {
@@ -138,10 +126,9 @@ public class FluidTankBlockEntity extends BlockEntity {
             return;
         }
 
-        int removedCapacity = capacity();
-        int removedAmount = Math.min(removedCapacity, (int) ((long) network.amount() * removedCapacity / network.capacity()));
+        Map<FluidTankBlockEntity, Integer> localAmounts = layeredAmounts(network);
+        int removedAmount = localAmounts.getOrDefault(this, 0);
         int remainingAmount = network.amount() - removedAmount;
-        int remainingCapacity = network.capacity() - removedCapacity;
 
         removalDropFluid = removedAmount > 0 ? resource.toStack(removedAmount) : FluidStack.EMPTY;
 
@@ -152,20 +139,18 @@ public class FluidTankBlockEntity extends BlockEntity {
             tank.setFluidDirect(FluidStack.EMPTY);
         }
 
-        if (remainingAmount <= 0 || remainingCapacity <= 0 || remainingTanks.isEmpty()) {
+        if (remainingAmount <= 0 || remainingTanks.isEmpty()) {
             return;
         }
 
         List<TankNetwork> groups = remainingGroups(remainingTanks);
-        int assigned = 0;
-        for (int i = 0; i < groups.size(); i++) {
-            TankNetwork group = groups.get(i);
-            int groupAmount = i == groups.size() - 1
-                    ? remainingAmount - assigned
-                    : (int) ((long) remainingAmount * group.capacity() / remainingCapacity);
-            groupAmount = Math.min(group.capacity(), Math.max(0, groupAmount));
-            assigned += groupAmount;
-            storeOnController(group.tanks(), resource, groupAmount);
+        for (TankNetwork group : groups) {
+            int groupAmount = group.tanks().stream()
+                    .mapToInt(tank -> localAmounts.getOrDefault(tank, 0))
+                    .sum();
+            if (groupAmount > 0) {
+                storeOnController(group.tanks(), resource, groupAmount);
+            }
         }
     }
 
@@ -300,6 +285,50 @@ public class FluidTankBlockEntity extends BlockEntity {
 
     private boolean isCompatibleWith(FluidResource target) {
         return fluid.isEmpty() || target.matches(fluid);
+    }
+
+    private static Map<FluidTankBlockEntity, Integer> layeredAmounts(TankNetwork network) {
+        Map<FluidTankBlockEntity, Integer> amounts = new HashMap<>();
+        if (network.tanks().isEmpty() || network.amount() <= 0) {
+            return amounts;
+        }
+
+        Map<Integer, List<FluidTankBlockEntity>> layers = new TreeMap<>();
+        for (FluidTankBlockEntity tank : network.tanks()) {
+            layers.computeIfAbsent(tank.getBlockPos().getY(), y -> new ArrayList<>()).add(tank);
+        }
+
+        int remaining = network.amount();
+        for (List<FluidTankBlockEntity> layer : layers.values()) {
+            layer.sort(Comparator.comparing(FluidTankBlockEntity::getBlockPos));
+            int layerCapacity = layer.stream().mapToInt(FluidTankBlockEntity::capacity).sum();
+            int layerAmount = Math.min(remaining, layerCapacity);
+            if (layerAmount <= 0 || layerCapacity <= 0) {
+                break;
+            }
+
+            assignLayerAmounts(layer, layerCapacity, layerAmount, amounts);
+            remaining -= layerAmount;
+            if (remaining <= 0) {
+                break;
+            }
+        }
+
+        return amounts;
+    }
+
+    private static void assignLayerAmounts(List<FluidTankBlockEntity> layer, int layerCapacity, int layerAmount, Map<FluidTankBlockEntity, Integer> amounts) {
+        int assigned = 0;
+        for (int i = 0; i < layer.size(); i++) {
+            FluidTankBlockEntity tank = layer.get(i);
+            int tankCapacity = tank.capacity();
+            int tankAmount = i == layer.size() - 1
+                    ? layerAmount - assigned
+                    : (int) ((long) layerAmount * tankCapacity / layerCapacity);
+            tankAmount = Math.min(tankCapacity, Math.max(0, tankAmount));
+            assigned += tankAmount;
+            amounts.put(tank, tankAmount);
+        }
     }
 
     private static void storeOnController(List<FluidTankBlockEntity> tanks, FluidResource resource, int amount) {
