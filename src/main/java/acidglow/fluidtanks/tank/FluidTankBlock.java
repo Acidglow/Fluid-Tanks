@@ -5,9 +5,11 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.stats.Stats;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -92,6 +94,36 @@ public class FluidTankBlock extends BaseEntityBlock {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide() && !oldState.is(state.getBlock())) {
             consolidate(level, pos);
+        }
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack itemStack) {
+        super.setPlacedBy(level, pos, state, by, itemStack);
+        if (!level.isClientSide()) {
+            consolidate(level, pos);
+        }
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) {
+            tank.prepareForRemoval();
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+
+    @Override
+    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith) {
+        player.awardStat(Stats.BLOCK_MINED.get(this));
+        player.causeFoodExhaustion(0.005F);
+
+        if (!level.isClientSide() && !player.getAbilities().instabuild) {
+            ItemStack drop = new ItemStack(this);
+            if (blockEntity instanceof FluidTankBlockEntity tank) {
+                tank.applyFluidToItem(drop);
+            }
+            popResource(level, pos, drop);
         }
     }
 
