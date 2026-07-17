@@ -77,6 +77,35 @@ public class FluidTankBlockEntity extends BlockEntity {
         return network.capacity() <= 0 ? 0.0F : (float) network.amount() / (float) network.capacity();
     }
 
+    public float blockFillRatio() {
+        FluidResource resource = detectNetworkResource();
+        if (resource.isEmpty()) {
+            return 0.0F;
+        }
+
+        TankNetwork network = network(resource);
+        if (network.amount() <= 0 || capacity() <= 0) {
+            return 0.0F;
+        }
+
+        List<FluidTankBlockEntity> tanks = new ArrayList<>(network.tanks());
+        tanks.sort(Comparator
+                .comparingInt((FluidTankBlockEntity tank) -> tank.getBlockPos().getY())
+                .thenComparing(FluidTankBlockEntity::getBlockPos));
+
+        int remaining = network.amount();
+        for (FluidTankBlockEntity tank : tanks) {
+            int tankCapacity = tank.capacity();
+            if (tank == this) {
+                int localAmount = Math.min(Math.max(remaining, 0), tankCapacity);
+                return tankCapacity <= 0 ? 0.0F : (float) localAmount / (float) tankCapacity;
+            }
+            remaining -= tankCapacity;
+        }
+
+        return 0.0F;
+    }
+
     public void consolidateNetwork() {
         FluidResource resource = detectNetworkResource();
         if (!resource.isEmpty()) {

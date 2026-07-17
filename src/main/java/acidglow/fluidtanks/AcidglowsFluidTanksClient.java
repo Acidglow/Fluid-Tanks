@@ -1,12 +1,15 @@
 package acidglow.fluidtanks;
 
+import acidglow.fluidtanks.client.FluidTankItemSpecialRenderer;
 import acidglow.fluidtanks.client.FluidTankRenderer;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterSpecialModelRendererEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
@@ -20,5 +23,13 @@ public class AcidglowsFluidTanksClient {
     @SubscribeEvent
     static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(AcidglowsFluidTanks.FLUID_TANK_BLOCK_ENTITY.get(), FluidTankRenderer::new);
+    }
+
+    @SubscribeEvent
+    static void registerSpecialModelRenderers(RegisterSpecialModelRendererEvent event) {
+        event.register(
+                Identifier.fromNamespaceAndPath(AcidglowsFluidTanks.MODID, "fluid_tank"),
+                FluidTankItemSpecialRenderer.Unbaked.MAP_CODEC
+        );
     }
 }

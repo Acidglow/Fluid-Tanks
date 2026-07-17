@@ -18,12 +18,12 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import org.jspecify.annotations.Nullable;
 
 public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEntity, FluidTankRenderState> {
-    private static final Identifier WATER_TEXTURE = Identifier.withDefaultNamespace("textures/block/water_still.png");
-    private static final Identifier LAVA_TEXTURE = Identifier.withDefaultNamespace("textures/block/lava_still.png");
-    private static final float MIN = 0.1875F;
-    private static final float MAX = 0.8125F;
-    private static final float BOTTOM = 0.125F;
-    private static final float TOP = 0.875F;
+    static final Identifier WATER_TEXTURE = Identifier.withDefaultNamespace("textures/block/water_still.png");
+    static final Identifier LAVA_TEXTURE = Identifier.withDefaultNamespace("textures/block/lava_still.png");
+    static final float MIN = 0.1875F;
+    static final float MAX = 0.8125F;
+    static final float BOTTOM = 0.125F;
+    static final float TOP = 0.875F;
 
     public FluidTankRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -38,7 +38,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         BlockEntityRenderer.super.extractRenderState(blockEntity, state, partialTicks, cameraPosition, breakProgress);
         FluidStack stack = blockEntity.networkFluid();
         state.fluid = stack.isEmpty() ? Fluids.EMPTY : stack.getFluid();
-        state.fillRatio = blockEntity.networkFillRatio();
+        state.fillRatio = blockEntity.blockFillRatio();
         state.color = colorFor(state.fluid);
     }
 
@@ -57,7 +57,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         );
     }
 
-    private static int colorFor(Fluid fluid) {
+    static int colorFor(Fluid fluid) {
         if (fluid == Fluids.LAVA || fluid == Fluids.FLOWING_LAVA) {
             return argb(210, 255, 96, 16);
         }
@@ -71,7 +71,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         return alpha << 24 | red << 16 | green << 8 | blue;
     }
 
-    private static void renderCuboid(PoseStack.Pose pose, VertexConsumer buffer, int color, float x0, float y0, float z0, float x1, float y1, float z1) {
+    static void renderCuboid(PoseStack.Pose pose, VertexConsumer buffer, int color, float x0, float y0, float z0, float x1, float y1, float z1) {
         quad(pose, buffer, color, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0.0F, 1.0F, 0.0F);
         quad(pose, buffer, color, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0.0F, -1.0F, 0.0F);
         quad(pose, buffer, color, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1.0F, 0.0F, 0.0F);
