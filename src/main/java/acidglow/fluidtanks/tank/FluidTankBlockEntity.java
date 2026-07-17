@@ -94,6 +94,41 @@ public class FluidTankBlockEntity extends BlockEntity {
         return (float) localAmount / (float) tankCapacity;
     }
 
+    public FluidConnections fluidConnections() {
+        FluidResource resource = detectNetworkResource();
+        if (resource.isEmpty()) {
+            return FluidConnections.NONE;
+        }
+
+        TankNetwork network = network(resource);
+        Map<FluidTankBlockEntity, Integer> localAmounts = layeredAmounts(network);
+        if (localAmounts.getOrDefault(this, 0) <= 0) {
+            return FluidConnections.NONE;
+        }
+
+        Set<BlockPos> filledPositions = new HashSet<>();
+        for (Map.Entry<FluidTankBlockEntity, Integer> entry : localAmounts.entrySet()) {
+            if (entry.getValue() > 0) {
+                filledPositions.add(entry.getKey().worldPosition);
+            }
+        }
+
+        BlockPos north = worldPosition.relative(Direction.NORTH);
+        BlockPos south = worldPosition.relative(Direction.SOUTH);
+        BlockPos east = worldPosition.relative(Direction.EAST);
+        BlockPos west = worldPosition.relative(Direction.WEST);
+        return new FluidConnections(
+                filledPositions.contains(north),
+                filledPositions.contains(south),
+                filledPositions.contains(east),
+                filledPositions.contains(west),
+                filledPositions.contains(north.relative(Direction.EAST)),
+                filledPositions.contains(north.relative(Direction.WEST)),
+                filledPositions.contains(south.relative(Direction.EAST)),
+                filledPositions.contains(south.relative(Direction.WEST))
+        );
+    }
+
     public void consolidateNetwork() {
         FluidResource resource = detectNetworkResource();
         if (!resource.isEmpty()) {
@@ -404,6 +439,19 @@ public class FluidTankBlockEntity extends BlockEntity {
 
     private record TankNetwork(List<FluidTankBlockEntity> tanks, int amount, int capacity) {
         private static final TankNetwork EMPTY = new TankNetwork(List.of(), 0, 0);
+    }
+
+    public record FluidConnections(
+            boolean north,
+            boolean south,
+            boolean east,
+            boolean west,
+            boolean northEast,
+            boolean northWest,
+            boolean southEast,
+            boolean southWest
+    ) {
+        public static final FluidConnections NONE = new FluidConnections(false, false, false, false, false, false, false, false);
     }
 
     private record TankSnapshot(Map<BlockPos, FluidStack> fluids) {

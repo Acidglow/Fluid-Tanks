@@ -40,6 +40,15 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         state.fluid = stack.isEmpty() ? Fluids.EMPTY : stack.getFluid();
         state.fillRatio = blockEntity.blockFillRatio();
         state.color = colorFor(state.fluid);
+        FluidTankBlockEntity.FluidConnections connections = blockEntity.fluidConnections();
+        state.north = connections.north();
+        state.south = connections.south();
+        state.east = connections.east();
+        state.west = connections.west();
+        state.northEast = connections.northEast();
+        state.northWest = connections.northWest();
+        state.southEast = connections.southEast();
+        state.southWest = connections.southWest();
     }
 
     @Override
@@ -53,8 +62,36 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         submitNodeCollector.submitCustomGeometry(
                 poseStack,
                 RenderTypes.entityTranslucent(texture),
-                (pose, buffer) -> renderCuboid(pose, buffer, state.color, MIN, BOTTOM, MIN, MAX, top, MAX)
+                (pose, buffer) -> renderConnectedFluid(pose, buffer, state, top)
         );
+    }
+
+    private static void renderConnectedFluid(PoseStack.Pose pose, VertexConsumer buffer, FluidTankRenderState state, float top) {
+        renderCuboid(pose, buffer, state.color, MIN, BOTTOM, MIN, MAX, top, MAX);
+        if (state.north) {
+            renderCuboid(pose, buffer, state.color, MIN, BOTTOM, 0.0F, MAX, top, MIN);
+        }
+        if (state.south) {
+            renderCuboid(pose, buffer, state.color, MIN, BOTTOM, MAX, MAX, top, 1.0F);
+        }
+        if (state.east) {
+            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, MIN, 1.0F, top, MAX);
+        }
+        if (state.west) {
+            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, MIN, MIN, top, MAX);
+        }
+        if (state.north && state.east && state.northEast) {
+            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, 0.0F, 1.0F, top, MIN);
+        }
+        if (state.north && state.west && state.northWest) {
+            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, 0.0F, MIN, top, MIN);
+        }
+        if (state.south && state.east && state.southEast) {
+            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, MAX, 1.0F, top, 1.0F);
+        }
+        if (state.south && state.west && state.southWest) {
+            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, MAX, MIN, top, 1.0F);
+        }
     }
 
     static int colorFor(Fluid fluid) {
