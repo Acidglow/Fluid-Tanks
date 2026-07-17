@@ -72,7 +72,7 @@ public class FluidTankBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
+        return tier == FluidTankTier.COPPER ? RenderShape.INVISIBLE : RenderShape.MODEL;
     }
 
     @Override
