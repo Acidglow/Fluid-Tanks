@@ -156,6 +156,39 @@ public class FluidTankBlockEntity extends BlockEntity {
         return new TankNetwork(tanks, amount, capacity);
     }
 
+    private TankNetwork emptyNetwork() {
+        if (level == null || !fluid.isEmpty()) {
+            return TankNetwork.EMPTY;
+        }
+
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        Set<BlockPos> seen = new HashSet<>();
+        List<FluidTankBlockEntity> tanks = new ArrayList<>();
+
+        queue.add(worldPosition);
+        seen.add(worldPosition);
+
+        while (!queue.isEmpty()) {
+            BlockPos current = queue.removeFirst();
+            BlockEntity blockEntity = level.getBlockEntity(current);
+            if (!(blockEntity instanceof FluidTankBlockEntity tank) || !tank.fluid.isEmpty()) {
+                continue;
+            }
+
+            tanks.add(tank);
+            for (Direction direction : Direction.values()) {
+                BlockPos next = current.relative(direction);
+                if (seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+
+        tanks.sort(Comparator.comparing(FluidTankBlockEntity::getBlockPos));
+        int capacity = tanks.stream().mapToInt(FluidTankBlockEntity::capacity).sum();
+        return new TankNetwork(tanks, 0, capacity);
+    }
+
     private boolean isCompatibleWith(FluidResource target) {
         return fluid.isEmpty() || target.matches(fluid);
     }
@@ -220,7 +253,7 @@ public class FluidTankBlockEntity extends BlockEntity {
             checkIndex(index);
             FluidResource target = resource.isEmpty() ? owner.detectNetworkResource() : resource;
             if (target.isEmpty()) {
-                return owner.capacity();
+                return owner.emptyNetwork().capacity();
             }
             return owner.network(target).capacity();
         }
