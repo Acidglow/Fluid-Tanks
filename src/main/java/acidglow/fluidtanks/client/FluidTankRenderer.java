@@ -41,6 +41,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
     private static final Identifier COPPER_UP_RIGHT = texture("copper_fluidtank_up_right");
     private static final Identifier COPPER_DOWN_LEFT = texture("copper_fluidtank_down_left");
     private static final Identifier COPPER_DOWN_RIGHT = texture("copper_fluidtank_down_right");
+    private static final Identifier COPPER_CENTER = texture("copper_fluidtank_center");
 
     public FluidTankRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -262,6 +263,9 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
     }
 
     private static Identifier textureForConnections(boolean up, boolean down, boolean left, boolean right) {
+        if (up && down && left && right) {
+            return COPPER_CENTER;
+        }
         if (up && down) {
             return COPPER_UP_DOWN;
         }
@@ -318,19 +322,19 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
     }
 
     private static void renderNorthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F);
+        quad(pose, buffer, color, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F);
     }
 
     private static void renderSouthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F);
+        quad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F);
     }
 
     private static void renderWestFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F, 0.0F);
+        quad(pose, buffer, color, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F, -1.0F, 0.0F, 0.0F);
     }
 
     private static void renderEastFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F);
+        quad(pose, buffer, color, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 0.0F);
     }
 
     private static void quad(
