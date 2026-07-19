@@ -1,6 +1,7 @@
 package acidglow.fluidtanks.client;
 
 import acidglow.fluidtanks.AcidglowsFluidTanks;
+import acidglow.fluidtanks.tank.CopperConnectedTextures;
 import acidglow.fluidtanks.tank.FluidTankBlock;
 import acidglow.fluidtanks.tank.FluidTankBlockEntity;
 import acidglow.fluidtanks.tank.FluidTankTier;
@@ -17,6 +18,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
@@ -30,18 +32,9 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
     static final float MAX = 0.8125F;
     static final float BOTTOM = 0.0F;
     static final float TOP = 1.0F;
-    private static final Identifier COPPER_BASE = texture("copper_fluidtank");
-    private static final Identifier COPPER_UP = texture("copper_fluidtank_up");
-    private static final Identifier COPPER_DOWN = texture("copper_fluidtank_down");
-    private static final Identifier COPPER_LEFT = texture("copper_fluidtank_left");
-    private static final Identifier COPPER_RIGHT = texture("copper_fluidtank_right");
-    private static final Identifier COPPER_UP_DOWN = texture("copper_fluidtank_up_down");
-    private static final Identifier COPPER_LEFT_RIGHT = texture("copper_fluidtank_left_right");
-    private static final Identifier COPPER_UP_LEFT = texture("copper_fluidtank_up_left");
-    private static final Identifier COPPER_UP_RIGHT = texture("copper_fluidtank_up_right");
-    private static final Identifier COPPER_DOWN_LEFT = texture("copper_fluidtank_down_left");
-    private static final Identifier COPPER_DOWN_RIGHT = texture("copper_fluidtank_down_right");
-    private static final Identifier COPPER_CENTER = texture("copper_fluidtank_center");
+    private static final float LIQUID_INSET = 0.0625F;
+    private static final float INNER_INSET = 0.002F;
+    private static final boolean DEBUG_CONNECTED_TEXTURES = Boolean.getBoolean(AcidglowsFluidTanks.MODID + ".debugConnectedTextures");
 
     public FluidTankRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -68,6 +61,10 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         state.northWest = connections.northWest();
         state.southEast = connections.southEast();
         state.southWest = connections.southWest();
+        state.upTank = connectsToTank(blockEntity, Direction.UP);
+        state.downTank = connectsToTank(blockEntity, Direction.DOWN);
+        state.upFluid = connectsToFluid(blockEntity, Direction.UP, stack.getFluid(), true);
+        state.downFluid = connectsToFluid(blockEntity, Direction.DOWN, stack.getFluid(), false);
     }
 
     @Override
@@ -80,23 +77,22 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
             return;
         }
 
-        float top = BOTTOM + (TOP - BOTTOM) * Math.min(1.0F, state.fillRatio);
         Identifier texture = state.fluid == Fluids.LAVA || state.fluid == Fluids.FLOWING_LAVA ? LAVA_TEXTURE : WATER_TEXTURE;
         submitNodeCollector.submitCustomGeometry(
                 poseStack,
                 RenderTypes.entityTranslucent(texture),
-                (pose, buffer) -> renderConnectedFluid(pose, buffer, state, top)
+                (pose, buffer) -> renderConnectedFluid(pose, buffer, state)
         );
     }
 
     private static void extractShellRenderState(FluidTankBlockEntity blockEntity, FluidTankRenderState state) {
         state.renderShell = false;
-        state.downTexture = COPPER_BASE;
-        state.upTexture = COPPER_BASE;
-        state.northTexture = COPPER_BASE;
-        state.southTexture = COPPER_BASE;
-        state.westTexture = COPPER_BASE;
-        state.eastTexture = COPPER_BASE;
+        state.downTexture = CopperConnectedTextures.COPPER_TOP_BOTTOM_SOLO;
+        state.upTexture = CopperConnectedTextures.COPPER_TOP_BOTTOM_SOLO;
+        state.northTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
+        state.southTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
+        state.westTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
+        state.eastTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
         state.downVisible = false;
         state.upVisible = false;
         state.northVisible = false;
@@ -104,7 +100,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         state.westVisible = false;
         state.eastVisible = false;
 
-        if (!(blockEntity.getBlockState().getBlock() instanceof FluidTankBlock tankBlock) || tankBlock.tier() != FluidTankTier.COPPER) {
+        if (!(blockEntity.getBlockState().getBlock() instanceof FluidTankBlock tankBlock)
+                || !CopperConnectedTextures.supportsTier(tankBlock.tier())) {
             return;
         }
 
@@ -114,92 +111,93 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         }
 
         BlockPos pos = blockEntity.getBlockPos();
+        BlockState currentState = blockEntity.getBlockState();
+        FluidTankTier tier = tankBlock.tier();
         state.renderShell = true;
-        state.downVisible = !hasTank(level, pos, Direction.DOWN);
-        state.upVisible = !hasTank(level, pos, Direction.UP);
-        state.northVisible = !hasTank(level, pos, Direction.NORTH);
-        state.southVisible = !hasTank(level, pos, Direction.SOUTH);
-        state.westVisible = !hasTank(level, pos, Direction.WEST);
-        state.eastVisible = !hasTank(level, pos, Direction.EAST);
-        state.downTexture = textureForFace(level, pos, Direction.DOWN);
-        state.upTexture = textureForFace(level, pos, Direction.UP);
-        state.northTexture = textureForFace(level, pos, Direction.NORTH);
-        state.southTexture = textureForFace(level, pos, Direction.SOUTH);
-        state.westTexture = textureForFace(level, pos, Direction.WEST);
-        state.eastTexture = textureForFace(level, pos, Direction.EAST);
+        state.downVisible = !canConnect(level, currentState, pos, Direction.DOWN);
+        state.upVisible = !canConnect(level, currentState, pos, Direction.UP);
+        state.northVisible = !canConnect(level, currentState, pos, Direction.NORTH);
+        state.southVisible = !canConnect(level, currentState, pos, Direction.SOUTH);
+        state.westVisible = !canConnect(level, currentState, pos, Direction.WEST);
+        state.eastVisible = !canConnect(level, currentState, pos, Direction.EAST);
+        state.downTexture = CopperConnectedTextures.topBottomTexture(tier);
+        state.upTexture = CopperConnectedTextures.topBottomTexture(tier);
+        state.northTexture = textureForFace(level, pos, Direction.NORTH, tier);
+        state.southTexture = textureForFace(level, pos, Direction.SOUTH, tier);
+        state.westTexture = textureForFace(level, pos, Direction.WEST, tier);
+        state.eastTexture = textureForFace(level, pos, Direction.EAST, tier);
     }
 
     private static void submitShell(FluidTankRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector) {
         if (state.upVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.upTexture),
-                    (pose, buffer) -> renderUpFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.upTexture),
+                    (pose, buffer) -> renderUpCap(pose, buffer, -1)
             );
         }
         if (state.downVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.downTexture),
-                    (pose, buffer) -> renderDownFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.downTexture),
+                    (pose, buffer) -> renderDownCap(pose, buffer, -1)
             );
         }
         if (state.northVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.northTexture),
-                    (pose, buffer) -> renderNorthFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.northTexture),
+                    (pose, buffer) -> renderNorthWall(pose, buffer, -1)
             );
         }
         if (state.southVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.southTexture),
-                    (pose, buffer) -> renderSouthFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.southTexture),
+                    (pose, buffer) -> renderSouthWall(pose, buffer, -1)
             );
         }
         if (state.westVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.westTexture),
-                    (pose, buffer) -> renderWestFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.westTexture),
+                    (pose, buffer) -> renderWestWall(pose, buffer, -1)
             );
         }
         if (state.eastVisible) {
             submitNodeCollector.submitCustomGeometry(
                     poseStack,
-                    RenderTypes.entityTranslucent(state.eastTexture),
-                    (pose, buffer) -> renderEastFace(pose, buffer, -1)
+                    RenderTypes.entityCutout(state.eastTexture),
+                    (pose, buffer) -> renderEastWall(pose, buffer, -1)
             );
         }
     }
 
-    private static void renderConnectedFluid(PoseStack.Pose pose, VertexConsumer buffer, FluidTankRenderState state, float top) {
-        renderCuboid(pose, buffer, state.color, MIN, BOTTOM, MIN, MAX, top, MAX);
-        if (state.north) {
-            renderCuboid(pose, buffer, state.color, MIN, BOTTOM, 0.0F, MAX, top, MIN);
-        }
-        if (state.south) {
-            renderCuboid(pose, buffer, state.color, MIN, BOTTOM, MAX, MAX, top, 1.0F);
-        }
-        if (state.east) {
-            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, MIN, 1.0F, top, MAX);
-        }
-        if (state.west) {
-            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, MIN, MIN, top, MAX);
-        }
-        if (state.north && state.east && state.northEast) {
-            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, 0.0F, 1.0F, top, MIN);
-        }
-        if (state.north && state.west && state.northWest) {
-            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, 0.0F, MIN, top, MIN);
-        }
-        if (state.south && state.east && state.southEast) {
-            renderCuboid(pose, buffer, state.color, MAX, BOTTOM, MAX, 1.0F, top, 1.0F);
-        }
-        if (state.south && state.west && state.southWest) {
-            renderCuboid(pose, buffer, state.color, 0.0F, BOTTOM, MAX, MIN, top, 1.0F);
-        }
+    private static void renderConnectedFluid(PoseStack.Pose pose, VertexConsumer buffer, FluidTankRenderState state) {
+        float x0 = state.west ? 0.0F : LIQUID_INSET;
+        float x1 = state.east ? 1.0F : 1.0F - LIQUID_INSET;
+        float y0 = state.downTank ? BOTTOM : LIQUID_INSET;
+        float yLimit = state.upTank ? TOP : TOP - LIQUID_INSET;
+        float y1 = y0 + (yLimit - y0) * Math.min(1.0F, state.fillRatio);
+        float z0 = state.north ? 0.0F : LIQUID_INSET;
+        float z1 = state.south ? 1.0F : 1.0F - LIQUID_INSET;
+        renderFluidBox(
+                pose,
+                buffer,
+                state.color,
+                x0,
+                y0,
+                z0,
+                x1,
+                y1,
+                z1,
+                y1 < TOP || !state.upFluid,
+                !state.downFluid,
+                !state.north,
+                !state.south,
+                !state.west,
+                !state.east
+        );
     }
 
     static int colorFor(Fluid fluid) {
@@ -212,92 +210,59 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         return argb(180, 72, 210, 180);
     }
 
-    private static Identifier texture(String name) {
-        return Identifier.fromNamespaceAndPath(AcidglowsFluidTanks.MODID, "textures/block/" + name + ".png");
+    private static Identifier textureForFace(Level level, BlockPos pos, Direction face, FluidTankTier tier) {
+        CopperConnectedTextures.Connections connections = CopperConnectedTextures.readConnections(level, pos, face, tier);
+        Identifier texture = CopperConnectedTextures.selectSideTexture(tier, connections);
+        if (DEBUG_CONNECTED_TEXTURES) {
+            CopperConnectedTextures.Connections normalized = connections.normalized();
+            AcidglowsFluidTanks.LOGGER.debug(
+                    "{} connected texture pos={} face={} cardinalMask={} missingCornerMask={} texture={}",
+                    tier,
+                    pos,
+                    face,
+                    normalized.cardinalMask(),
+                    normalized.missingCornerMask(),
+                    texture
+            );
+        }
+        return texture;
     }
 
-    private static Identifier textureForFace(Level level, BlockPos pos, Direction face) {
-        FaceConnections connections = connectionsForFace(level, pos, face);
-        return textureForConnections(connections.up(), connections.down(), connections.left(), connections.right());
+    private static boolean canConnect(Level level, BlockState currentState, BlockPos pos, Direction direction) {
+        BlockPos neighborPos = pos.relative(direction);
+        return CopperConnectedTextures.canConnect(currentState, level.getBlockState(neighborPos), pos, neighborPos);
     }
 
-    private static FaceConnections connectionsForFace(Level level, BlockPos pos, Direction face) {
-        return switch (face) {
-            case NORTH -> new FaceConnections(
-                    hasTank(level, pos, Direction.UP),
-                    hasTank(level, pos, Direction.DOWN),
-                    hasTank(level, pos, Direction.EAST),
-                    hasTank(level, pos, Direction.WEST)
-            );
-            case SOUTH -> new FaceConnections(
-                    hasTank(level, pos, Direction.UP),
-                    hasTank(level, pos, Direction.DOWN),
-                    hasTank(level, pos, Direction.WEST),
-                    hasTank(level, pos, Direction.EAST)
-            );
-            case EAST -> new FaceConnections(
-                    hasTank(level, pos, Direction.UP),
-                    hasTank(level, pos, Direction.DOWN),
-                    hasTank(level, pos, Direction.SOUTH),
-                    hasTank(level, pos, Direction.NORTH)
-            );
-            case WEST -> new FaceConnections(
-                    hasTank(level, pos, Direction.UP),
-                    hasTank(level, pos, Direction.DOWN),
-                    hasTank(level, pos, Direction.NORTH),
-                    hasTank(level, pos, Direction.SOUTH)
-            );
-            case UP -> new FaceConnections(
-                    hasTank(level, pos, Direction.NORTH),
-                    hasTank(level, pos, Direction.SOUTH),
-                    hasTank(level, pos, Direction.WEST),
-                    hasTank(level, pos, Direction.EAST)
-            );
-            case DOWN -> new FaceConnections(
-                    hasTank(level, pos, Direction.SOUTH),
-                    hasTank(level, pos, Direction.NORTH),
-                    hasTank(level, pos, Direction.WEST),
-                    hasTank(level, pos, Direction.EAST)
-            );
-        };
+    private static boolean connectsToTank(FluidTankBlockEntity blockEntity, Direction direction) {
+        Level level = blockEntity.getLevel();
+        if (level == null) {
+            return false;
+        }
+
+        BlockPos pos = blockEntity.getBlockPos();
+        BlockPos neighborPos = pos.relative(direction);
+        return CopperConnectedTextures.canConnect(blockEntity.getBlockState(), level.getBlockState(neighborPos), pos, neighborPos);
     }
 
-    private static Identifier textureForConnections(boolean up, boolean down, boolean left, boolean right) {
-        if (up && down && left && right) {
-            return COPPER_CENTER;
+    private static boolean connectsToFluid(FluidTankBlockEntity blockEntity, Direction direction, Fluid fluid, boolean above) {
+        Level level = blockEntity.getLevel();
+        if (level == null || fluid == Fluids.EMPTY) {
+            return false;
         }
-        if (up && down) {
-            return COPPER_UP_DOWN;
-        }
-        if (left && right) {
-            return COPPER_LEFT_RIGHT;
-        }
-        if (up && left) {
-            return COPPER_UP_LEFT;
-        }
-        if (up && right) {
-            return COPPER_UP_RIGHT;
-        }
-        if (down && left) {
-            return COPPER_DOWN_LEFT;
-        }
-        if (down && right) {
-            return COPPER_DOWN_RIGHT;
-        }
-        if (up) {
-            return COPPER_UP;
-        }
-        if (down) {
-            return COPPER_DOWN;
-        }
-        if (left) {
-            return COPPER_LEFT;
-        }
-        return right ? COPPER_RIGHT : COPPER_BASE;
-    }
 
-    private static boolean hasTank(Level level, BlockPos pos, Direction direction) {
-        return level.getBlockState(pos.relative(direction)).getBlock() instanceof FluidTankBlock;
+        BlockPos neighborPos = blockEntity.getBlockPos().relative(direction);
+        if (!CopperConnectedTextures.canConnect(blockEntity.getBlockState(), level.getBlockState(neighborPos), blockEntity.getBlockPos(), neighborPos)
+                || !(level.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)) {
+            return false;
+        }
+
+        FluidStack neighborFluid = neighbor.networkFluid();
+        if (neighborFluid.isEmpty() || neighborFluid.getFluid() != fluid) {
+            return false;
+        }
+
+        float neighborFillRatio = neighbor.blockFillRatio();
+        return above ? neighborFillRatio > 0.0F : neighborFillRatio >= 1.0F;
     }
 
     private static int argb(int alpha, int red, int green, int blue) {
@@ -313,28 +278,125 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         quad(pose, buffer, color, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0.0F, 0.0F, 1.0F);
     }
 
+    private static void renderFluidBox(
+            PoseStack.Pose pose,
+            VertexConsumer buffer,
+            int color,
+            float x0,
+            float y0,
+            float z0,
+            float x1,
+            float y1,
+            float z1,
+            boolean top,
+            boolean bottom,
+            boolean north,
+            boolean south,
+            boolean west,
+            boolean east
+    ) {
+        if (top) {
+            quad(pose, buffer, color, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0.0F, 1.0F, 0.0F);
+        }
+        if (bottom) {
+            quad(pose, buffer, color, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0.0F, -1.0F, 0.0F);
+        }
+        if (west) {
+            quad(pose, buffer, color, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1.0F, 0.0F, 0.0F);
+        }
+        if (east) {
+            quad(pose, buffer, color, x1, y0, z1, x1, y1, z1, x1, y1, z0, x1, y0, z0, 1.0F, 0.0F, 0.0F);
+        }
+        if (north) {
+            quad(pose, buffer, color, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z0, 0.0F, 0.0F, -1.0F);
+        }
+        if (south) {
+            quad(pose, buffer, color, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0.0F, 0.0F, 1.0F);
+        }
+    }
+
+    private static void renderUpCap(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderUpFace(pose, buffer, color);
+        renderInsideUpFace(pose, buffer, color);
+    }
+
+    private static void renderDownCap(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderDownFace(pose, buffer, color);
+        renderInsideDownFace(pose, buffer, color);
+    }
+
+    private static void renderNorthWall(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderNorthFace(pose, buffer, color);
+        renderInsideNorthFace(pose, buffer, color);
+    }
+
+    private static void renderSouthWall(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderSouthFace(pose, buffer, color);
+        renderInsideSouthFace(pose, buffer, color);
+    }
+
+    private static void renderWestWall(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderWestFace(pose, buffer, color);
+        renderInsideWestFace(pose, buffer, color);
+    }
+
+    private static void renderEastWall(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        renderEastFace(pose, buffer, color);
+        renderInsideEastFace(pose, buffer, color);
+    }
+
     private static void renderUpFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F);
+        flippedVQuad(pose, buffer, color, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F);
+    }
+
+    private static void renderInsideUpFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float y = 1.0F - INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, 0.0F, y, 0.0F, 1.0F, y, 0.0F, 1.0F, y, 1.0F, 0.0F, y, 1.0F, 0.0F, -1.0F, 0.0F);
     }
 
     private static void renderDownFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F);
+        flippedVQuad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F);
+    }
+
+    private static void renderInsideDownFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float y = INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, 0.0F, y, 1.0F, 1.0F, y, 1.0F, 1.0F, y, 0.0F, 0.0F, y, 0.0F, 0.0F, 1.0F, 0.0F);
     }
 
     private static void renderNorthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F);
+        flippedVQuad(pose, buffer, color, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F);
+    }
+
+    private static void renderInsideNorthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float z = INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, 1.0F, 0.0F, z, 0.0F, 0.0F, z, 0.0F, 1.0F, z, 1.0F, 1.0F, z, 0.0F, 0.0F, 1.0F);
     }
 
     private static void renderSouthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F);
+        flippedVQuad(pose, buffer, color, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F);
+    }
+
+    private static void renderInsideSouthFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float z = 1.0F - INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, 0.0F, 0.0F, z, 1.0F, 0.0F, z, 1.0F, 1.0F, z, 0.0F, 1.0F, z, 0.0F, 0.0F, -1.0F);
     }
 
     private static void renderWestFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F, -1.0F, 0.0F, 0.0F);
+        flippedVQuad(pose, buffer, color, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.0F, -1.0F, 0.0F, 0.0F);
+    }
+
+    private static void renderInsideWestFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float x = INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, x, 0.0F, 0.0F, x, 0.0F, 1.0F, x, 1.0F, 1.0F, x, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F);
     }
 
     private static void renderEastFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
-        quad(pose, buffer, color, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 0.0F);
+        flippedVQuad(pose, buffer, color, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 0.0F);
+    }
+
+    private static void renderInsideEastFace(PoseStack.Pose pose, VertexConsumer buffer, int color) {
+        float x = 1.0F - INNER_INSET;
+        flippedVQuadReversed(pose, buffer, color, x, 0.0F, 1.0F, x, 0.0F, 0.0F, x, 1.0F, 0.0F, x, 1.0F, 1.0F, -1.0F, 0.0F, 0.0F);
     }
 
     private static void quad(
@@ -363,6 +425,58 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         vertex(pose, buffer, color, x3, y3, z3, 0.0F, 1.0F, normalX, normalY, normalZ);
     }
 
+    private static void flippedVQuad(
+            PoseStack.Pose pose,
+            VertexConsumer buffer,
+            int color,
+            float x0,
+            float y0,
+            float z0,
+            float x1,
+            float y1,
+            float z1,
+            float x2,
+            float y2,
+            float z2,
+            float x3,
+            float y3,
+            float z3,
+            float normalX,
+            float normalY,
+            float normalZ
+    ) {
+        vertex(pose, buffer, color, x0, y0, z0, 0.0F, 1.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x1, y1, z1, 1.0F, 1.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x2, y2, z2, 1.0F, 0.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x3, y3, z3, 0.0F, 0.0F, normalX, normalY, normalZ);
+    }
+
+    private static void flippedVQuadReversed(
+            PoseStack.Pose pose,
+            VertexConsumer buffer,
+            int color,
+            float x0,
+            float y0,
+            float z0,
+            float x1,
+            float y1,
+            float z1,
+            float x2,
+            float y2,
+            float z2,
+            float x3,
+            float y3,
+            float z3,
+            float normalX,
+            float normalY,
+            float normalZ
+    ) {
+        vertex(pose, buffer, color, x3, y3, z3, 0.0F, 0.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x2, y2, z2, 1.0F, 0.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x1, y1, z1, 1.0F, 1.0F, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x0, y0, z0, 0.0F, 1.0F, normalX, normalY, normalZ);
+    }
+
     private static void vertex(PoseStack.Pose pose, VertexConsumer buffer, int color, float x, float y, float z, float u, float v, float normalX, float normalY, float normalZ) {
         buffer.addVertex(pose, x, y, z)
                 .setColor(color)
@@ -370,8 +484,5 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(15728880)
                 .setNormal(pose, normalX, normalY, normalZ);
-    }
-
-    private record FaceConnections(boolean up, boolean down, boolean left, boolean right) {
     }
 }

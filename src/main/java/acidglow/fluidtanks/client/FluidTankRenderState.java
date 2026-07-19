@@ -26,6 +26,10 @@ public class FluidTankRenderState extends BlockEntityRenderState {
     public boolean south;
     public boolean east;
     public boolean west;
+    public boolean upTank;
+    public boolean downTank;
+    public boolean upFluid;
+    public boolean downFluid;
     public boolean northEast;
     public boolean northWest;
     public boolean southEast;

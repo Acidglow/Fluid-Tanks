@@ -3,6 +3,7 @@ package acidglow.fluidtanks;
 import acidglow.fluidtanks.tank.FluidTankBlock;
 import acidglow.fluidtanks.tank.FluidTankBlockEntity;
 import acidglow.fluidtanks.tank.FluidTankTier;
+import acidglow.fluidtanks.tank.CopperConnectedTextureDebug;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
@@ -21,6 +22,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -82,6 +84,7 @@ public class AcidglowsFluidTanks {
         CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::registerCapabilities);
+        NeoForge.EVENT_BUS.addListener(CopperConnectedTextureDebug::registerCommands);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
