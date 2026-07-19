@@ -23,6 +23,8 @@ public final class CopperConnectedTextures {
     public static final Identifier GOLD_TOP_BOTTOM_SOLO = texture("gold_top_bottom_solo");
     public static final Identifier DIAMOND_SIDE_SOLO = texture("diamond_solo");
     public static final Identifier DIAMOND_TOP_BOTTOM_SOLO = texture("diamond_top_bottom_solo");
+    public static final Identifier EMERALD_SIDE_SOLO = texture("emerald_solo");
+    public static final Identifier EMERALD_TOP_BOTTOM_SOLO = texture("emerald_top_bottom_solo");
 
     public static final int U = 1;
     public static final int D = 1 << 1;
@@ -41,7 +43,8 @@ public final class CopperConnectedTextures {
             FluidTankTier.COPPER, createTierTextures(FluidTankTier.COPPER),
             FluidTankTier.IRON, createTierTextures(FluidTankTier.IRON),
             FluidTankTier.GOLD, createTierTextures(FluidTankTier.GOLD),
-            FluidTankTier.DIAMOND, createTierTextures(FluidTankTier.DIAMOND)
+            FluidTankTier.DIAMOND, createTierTextures(FluidTankTier.DIAMOND),
+            FluidTankTier.EMERALD, createTierTextures(FluidTankTier.EMERALD)
     );
 
     private CopperConnectedTextures() {
@@ -276,6 +279,7 @@ public final class CopperConnectedTextures {
             case IRON -> "iron";
             case GOLD -> "gold";
             case DIAMOND -> "diamond";
+            case EMERALD -> "emerald";
             default -> throw new IllegalArgumentException("Tank tier " + tier + " does not have connected textures");
         };
     }
