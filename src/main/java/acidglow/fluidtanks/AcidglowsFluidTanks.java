@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -44,6 +45,7 @@ public class AcidglowsFluidTanks {
 
     public static final Map<FluidTankTier, DeferredBlock<FluidTankBlock>> TANK_BLOCKS = new EnumMap<>(FluidTankTier.class);
     public static final Map<FluidTankTier, DeferredItem<BlockItem>> TANK_ITEMS = new EnumMap<>(FluidTankTier.class);
+    public static final DeferredItem<Item> WRENCH = ITEMS.registerSimpleItem("wrench");
 
     static {
         for (FluidTankTier tier : FluidTankTier.values()) {
@@ -74,7 +76,10 @@ public class AcidglowsFluidTanks {
             .title(Component.translatable("itemGroup.acidglowsfluidtanks"))
             .withTabsBefore(CreativeModeTabs.FUNCTIONAL_BLOCKS)
             .icon(() -> TANK_ITEMS.get(FluidTankTier.IRON).get().getDefaultInstance())
-            .displayItems((parameters, output) -> Arrays.stream(FluidTankTier.values()).forEach(tier -> output.accept(TANK_ITEMS.get(tier).get())))
+            .displayItems((parameters, output) -> {
+                output.accept(WRENCH.get());
+                Arrays.stream(FluidTankTier.values()).forEach(tier -> output.accept(TANK_ITEMS.get(tier).get()));
+            })
             .build());
 
     public AcidglowsFluidTanks(IEventBus modEventBus, ModContainer modContainer) {
