@@ -16,8 +16,6 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -37,24 +35,22 @@ public class FluidTankItemSpecialRenderer implements SpecialModelRenderer<FluidT
             boolean hasFoil,
             int outlineColor
     ) {
-        if (argument == null || argument.fluid() == Fluids.EMPTY || argument.fillRatio() <= 0.0F) {
+        if (argument == null || argument.fillRatio() <= 0.0F) {
             return;
         }
 
-        float top = FluidTankRenderer.BOTTOM + (FluidTankRenderer.TOP - FluidTankRenderer.BOTTOM) * Math.min(1.0F, argument.fillRatio());
         submitNodeCollector.submitCustomGeometry(
                 poseStack,
-                RenderTypes.entityTranslucent(argument.texture()),
-                (pose, buffer) -> FluidTankRenderer.renderCuboid(
+                RenderTypes.entityTranslucent(argument.appearance().texture()),
+                (pose, buffer) -> FluidTankRenderer.renderStandaloneFluid(
                         pose,
                         buffer,
-                        argument.color(),
-                        FluidTankRenderer.MIN,
-                        FluidTankRenderer.BOTTOM,
-                        FluidTankRenderer.MIN,
-                        FluidTankRenderer.MAX,
-                        top,
-                        FluidTankRenderer.MAX
+                        argument.appearance().color(),
+                        argument.fillRatio(),
+                        argument.appearance().u0(),
+                        argument.appearance().v0(),
+                        argument.appearance().u1(),
+                        argument.appearance().v1()
                 )
         );
     }
@@ -74,12 +70,9 @@ public class FluidTankItemSpecialRenderer implements SpecialModelRenderer<FluidT
 
         int capacity = itemCapacity(stack);
         float fillRatio = capacity <= 0 ? 0.0F : (float) fluid.getAmount() / (float) capacity;
-        Fluid fluidType = fluid.getFluid();
         return new TankItemFluid(
-                fluidType,
                 fillRatio,
-                FluidTankRenderer.colorFor(fluidType),
-                fluidType == Fluids.LAVA || fluidType == Fluids.FLOWING_LAVA ? FluidTankRenderer.LAVA_TEXTURE : FluidTankRenderer.WATER_TEXTURE
+                FluidTankRenderer.fluidAppearance(fluid)
         );
     }
 
@@ -103,7 +96,7 @@ public class FluidTankItemSpecialRenderer implements SpecialModelRenderer<FluidT
         return 0;
     }
 
-    public record TankItemFluid(Fluid fluid, float fillRatio, int color, net.minecraft.resources.Identifier texture) {
+    public record TankItemFluid(float fillRatio, FluidTankRenderer.FluidAppearance appearance) {
     }
 
     public record Unbaked() implements SpecialModelRenderer.Unbaked<TankItemFluid> {

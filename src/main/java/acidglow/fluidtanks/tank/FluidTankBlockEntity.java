@@ -282,6 +282,11 @@ public class FluidTankBlockEntity extends BlockEntity {
             TankNetwork network = network(resource);
             storeOnController(network.tanks(), resource, network.amount());
         }
+        updateLitState();
+    }
+
+    public void refreshLitState() {
+        updateLitState();
     }
 
     public void applyFluidToItem(ItemStack stack) {
@@ -663,10 +668,34 @@ public class FluidTankBlockEntity extends BlockEntity {
     private void syncChanged() {
         setChanged();
         if (level != null) {
-            BlockState state = getBlockState();
+            BlockState state = updateLitState();
             level.invalidateCapabilities(worldPosition);
             level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
         }
+    }
+
+    private BlockState updateLitState() {
+        if (level == null) {
+            return getBlockState();
+        }
+
+        BlockState state = getBlockState();
+        if (!(state.getBlock() instanceof FluidTankBlock)) {
+            return state;
+        }
+
+        boolean lit = isLava(networkFluid);
+        if (state.getValue(FluidTankBlock.LIT) == lit) {
+            return state;
+        }
+
+        BlockState updatedState = state.setValue(FluidTankBlock.LIT, lit);
+        level.setBlock(worldPosition, updatedState, Block.UPDATE_ALL);
+        return updatedState;
+    }
+
+    private static boolean isLava(FluidStack stack) {
+        return !stack.isEmpty() && (stack.getFluid() == Fluids.LAVA || stack.getFluid() == Fluids.FLOWING_LAVA);
     }
 
     private record TankNetwork(List<FluidTankBlockEntity> tanks, int amount, int capacity) {

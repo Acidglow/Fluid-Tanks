@@ -28,6 +28,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -37,6 +40,7 @@ import net.neoforged.neoforge.transfer.fluid.FluidUtil;
 import org.jspecify.annotations.Nullable;
 
 public class FluidTankBlock extends BaseEntityBlock {
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
     private static final VoxelShape SHAPE = Shapes.box(0.0625, 0.0, 0.0625, 0.9375, 1.0, 0.9375);
     private static final ThreadLocal<BlockPos> PLACEMENT_TARGET = new ThreadLocal<>();
     private static final Map<UUID, SelectedTank> WRENCH_SELECTIONS = new HashMap<>();
@@ -46,6 +50,7 @@ public class FluidTankBlock extends BaseEntityBlock {
     public FluidTankBlock(FluidTankTier tier, BlockBehaviour.Properties properties) {
         super(properties);
         this.tier = tier;
+        registerDefaultState(stateDefinition.any().setValue(LIT, false));
     }
 
     @Override
@@ -97,6 +102,15 @@ public class FluidTankBlock extends BaseEntityBlock {
     }
 
     @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(LIT);
+    }
+
+    public static int lightLevel(BlockState state) {
+        return state.getValue(LIT) ? 15 : 0;
+    }
+
+    @Override
     protected InteractionResult useItemOn(ItemStack itemStack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (!(level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank)) {
             return InteractionResult.PASS;
@@ -136,6 +150,9 @@ public class FluidTankBlock extends BaseEntityBlock {
                 tank.connectByWrench(target);
             }
             consolidate(level, pos);
+            if (level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) {
+                tank.refreshLitState();
+            }
         }
         PLACEMENT_TARGET.remove();
     }

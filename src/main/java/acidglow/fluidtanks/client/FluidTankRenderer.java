@@ -7,6 +7,9 @@ import acidglow.fluidtanks.tank.FluidTankBlockEntity;
 import acidglow.fluidtanks.tank.FluidTankTier;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -16,23 +19,26 @@ import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
+import net.neoforged.neoforge.client.fluid.FluidTintSource;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jspecify.annotations.Nullable;
 
 public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEntity, FluidTankRenderState> {
-    static final Identifier WATER_TEXTURE = Identifier.withDefaultNamespace("textures/block/water_still.png");
-    static final Identifier LAVA_TEXTURE = Identifier.withDefaultNamespace("textures/block/lava_still.png");
     static final float MIN = 0.1875F;
     static final float MAX = 0.8125F;
     static final float BOTTOM = 0.0F;
     static final float TOP = 1.0F;
-    private static final float LIQUID_INSET = 0.0625F;
+    static final float LIQUID_INSET = 0.0625F;
     private static final float INNER_INSET = 0.002F;
     private static final boolean DEBUG_CONNECTED_TEXTURES = Boolean.getBoolean(AcidglowsFluidTanks.MODID + ".debugConnectedTextures");
 
@@ -51,7 +57,13 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         FluidStack stack = blockEntity.networkFluid();
         state.fluid = stack.isEmpty() ? Fluids.EMPTY : stack.getFluid();
         state.fillRatio = blockEntity.blockFillRatio();
-        state.color = colorFor(state.fluid);
+        FluidAppearance fluidAppearance = fluidAppearance(stack, blockEntity.getBlockState(), blockEntity.getLevel(), blockEntity.getBlockPos());
+        state.fluidTexture = fluidAppearance.texture();
+        state.fluidU0 = fluidAppearance.u0();
+        state.fluidU1 = fluidAppearance.u1();
+        state.fluidV0 = fluidAppearance.v0();
+        state.fluidV1 = fluidAppearance.v1();
+        state.color = fluidAppearance.color();
         FluidTankBlockEntity.FluidConnections connections = blockEntity.fluidConnections();
         state.north = connections.north();
         state.south = connections.south();
@@ -80,10 +92,9 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
             return;
         }
 
-        Identifier texture = state.fluid == Fluids.LAVA || state.fluid == Fluids.FLOWING_LAVA ? LAVA_TEXTURE : WATER_TEXTURE;
         submitNodeCollector.submitCustomGeometry(
                 poseStack,
-                RenderTypes.entityTranslucent(texture),
+                RenderTypes.entityTranslucent(state.fluidTexture),
                 (pose, buffer) -> renderConnectedFluid(pose, buffer, state)
         );
     }
@@ -204,8 +215,63 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
                 !state.north,
                 !state.south,
                 !state.west,
-                !state.east
+                !state.east,
+                state.fluidU0,
+                state.fluidV0,
+                state.fluidU1,
+                state.fluidV1
         );
+    }
+
+    static void renderStandaloneFluid(PoseStack.Pose pose, VertexConsumer buffer, int color, float fillRatio, float u0, float v0, float u1, float v1) {
+        float y0 = LIQUID_INSET;
+        float y1 = y0 + (TOP - LIQUID_INSET - y0) * Math.min(1.0F, fillRatio);
+        renderFluidBox(
+                pose,
+                buffer,
+                color,
+                LIQUID_INSET,
+                y0,
+                LIQUID_INSET,
+                1.0F - LIQUID_INSET,
+                y1,
+                1.0F - LIQUID_INSET,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                u0,
+                v0,
+                u1,
+                v1
+        );
+    }
+
+    static FluidAppearance fluidAppearance(FluidStack stack) {
+        return fluidAppearance(stack, null, null, null);
+    }
+
+    private static FluidAppearance fluidAppearance(FluidStack stack, @Nullable BlockState blockState, @Nullable Level level, @Nullable BlockPos pos) {
+        if (stack.isEmpty()) {
+            return FluidAppearance.DEFAULT;
+        }
+
+        FluidState fluidState = stack.getFluid().defaultFluidState();
+        FluidModel model = Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(fluidState);
+        TextureAtlasSprite sprite = model.stillMaterial().sprite();
+        FluidTintSource tintSource = model.fluidTintSource();
+        int color = -1;
+        if (tintSource != null) {
+            if (level instanceof BlockAndTintGetter tintedLevel && blockState != null && pos != null) {
+                color = tintSource.colorInWorld(fluidState, blockState, tintedLevel, pos);
+            } else {
+                color = tintSource.colorAsStack(stack);
+            }
+        }
+
+        return new FluidAppearance(sprite.atlasLocation(), sprite.getU0(), sprite.getU1(), sprite.getV0(), sprite.getV1(), color);
     }
 
     static int colorFor(Fluid fluid) {
@@ -300,25 +366,29 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
             boolean north,
             boolean south,
             boolean west,
-            boolean east
+            boolean east,
+            float u0,
+            float v0,
+            float u1,
+            float v1
     ) {
         if (top) {
-            quad(pose, buffer, color, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0.0F, 1.0F, 0.0F);
+            fluidQuad(pose, buffer, color, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0.0F, 1.0F, 0.0F, u0, v0, u1, v1);
         }
         if (bottom) {
-            quad(pose, buffer, color, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0.0F, -1.0F, 0.0F);
+            fluidQuad(pose, buffer, color, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0.0F, -1.0F, 0.0F, u0, v0, u1, v1);
         }
         if (west) {
-            quad(pose, buffer, color, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1.0F, 0.0F, 0.0F);
+            fluidQuad(pose, buffer, color, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1.0F, 0.0F, 0.0F, u0, v0, u1, v1);
         }
         if (east) {
-            quad(pose, buffer, color, x1, y0, z1, x1, y1, z1, x1, y1, z0, x1, y0, z0, 1.0F, 0.0F, 0.0F);
+            fluidQuad(pose, buffer, color, x1, y0, z1, x1, y1, z1, x1, y1, z0, x1, y0, z0, 1.0F, 0.0F, 0.0F, u0, v0, u1, v1);
         }
         if (north) {
-            quad(pose, buffer, color, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z0, 0.0F, 0.0F, -1.0F);
+            fluidQuad(pose, buffer, color, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z0, 0.0F, 0.0F, -1.0F, u0, v0, u1, v1);
         }
         if (south) {
-            quad(pose, buffer, color, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0.0F, 0.0F, 1.0F);
+            fluidQuad(pose, buffer, color, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0.0F, 0.0F, 1.0F, u0, v0, u1, v1);
         }
     }
 
@@ -432,6 +502,36 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         vertex(pose, buffer, color, x3, y3, z3, 0.0F, 1.0F, normalX, normalY, normalZ);
     }
 
+    private static void fluidQuad(
+            PoseStack.Pose pose,
+            VertexConsumer buffer,
+            int color,
+            float x0,
+            float y0,
+            float z0,
+            float x1,
+            float y1,
+            float z1,
+            float x2,
+            float y2,
+            float z2,
+            float x3,
+            float y3,
+            float z3,
+            float normalX,
+            float normalY,
+            float normalZ,
+            float u0,
+            float v0,
+            float u1,
+            float v1
+    ) {
+        vertex(pose, buffer, color, x0, y0, z0, u0, v0, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x1, y1, z1, u1, v0, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x2, y2, z2, u1, v1, normalX, normalY, normalZ);
+        vertex(pose, buffer, color, x3, y3, z3, u0, v1, normalX, normalY, normalZ);
+    }
+
     private static void flippedVQuad(
             PoseStack.Pose pose,
             VertexConsumer buffer,
@@ -491,5 +591,9 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(15728880)
                 .setNormal(pose, normalX, normalY, normalZ);
+    }
+
+    record FluidAppearance(Identifier texture, float u0, float u1, float v0, float v1, int color) {
+        static final FluidAppearance DEFAULT = new FluidAppearance(TextureAtlas.LOCATION_BLOCKS, 0.0F, 1.0F, 0.0F, 1.0F, -1);
     }
 }

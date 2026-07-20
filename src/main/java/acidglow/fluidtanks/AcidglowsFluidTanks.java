@@ -56,6 +56,7 @@ public class AcidglowsFluidTanks {
                             .mapColor(MapColor.COLOR_LIGHT_BLUE)
                             .strength(0.6F)
                             .sound(SoundType.GLASS)
+                            .lightLevel(FluidTankBlock::lightLevel)
                             .noOcclusion()
                             .isValidSpawn((state, level, pos, entityType) -> false)
                             .isRedstoneConductor((state, level, pos) -> false)

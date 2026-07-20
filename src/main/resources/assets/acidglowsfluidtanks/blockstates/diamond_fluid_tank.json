@@ -1,6 +1,9 @@
 {
   "variants": {
-    "": {
+    "lit=false": {
+      "model": "acidglowsfluidtanks:block/diamond_fluid_tank"
+    },
+    "lit=true": {
       "model": "acidglowsfluidtanks:block/diamond_fluid_tank"
     }
   }
