@@ -1,7 +1,8 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/cube_column",
   "render_type": "minecraft:translucent",
   "textures": {
-    "all": "minecraft:block/gray_stained_glass"
+    "end": "acidglowsfluidtanks:block/netherite_top_bottom_solo",
+    "side": "acidglowsfluidtanks:block/netherite_solo"
   }
 }

@@ -25,6 +25,8 @@ public final class CopperConnectedTextures {
     public static final Identifier DIAMOND_TOP_BOTTOM_SOLO = texture("diamond_top_bottom_solo");
     public static final Identifier EMERALD_SIDE_SOLO = texture("emerald_solo");
     public static final Identifier EMERALD_TOP_BOTTOM_SOLO = texture("emerald_top_bottom_solo");
+    public static final Identifier NETHERITE_SIDE_SOLO = texture("netherite_solo");
+    public static final Identifier NETHERITE_TOP_BOTTOM_SOLO = texture("netherite_top_bottom_solo");
 
     public static final int U = 1;
     public static final int D = 1 << 1;
@@ -44,7 +46,8 @@ public final class CopperConnectedTextures {
             FluidTankTier.IRON, createTierTextures(FluidTankTier.IRON),
             FluidTankTier.GOLD, createTierTextures(FluidTankTier.GOLD),
             FluidTankTier.DIAMOND, createTierTextures(FluidTankTier.DIAMOND),
-            FluidTankTier.EMERALD, createTierTextures(FluidTankTier.EMERALD)
+            FluidTankTier.EMERALD, createTierTextures(FluidTankTier.EMERALD),
+            FluidTankTier.NETHERITE, createTierTextures(FluidTankTier.NETHERITE)
     );
 
     private CopperConnectedTextures() {
@@ -75,19 +78,28 @@ public final class CopperConnectedTextures {
 
     public static Connections readConnections(BlockGetter world, BlockPos position, Direction face, FluidTankTier tier) {
         FaceOffsets offsets = getFaceLocalOffsets(face);
-        BlockState currentState = world.getBlockState(position);
 
-        boolean u = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.UP)), position, position.relative(Direction.UP));
-        boolean d = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.DOWN)), position, position.relative(Direction.DOWN));
-        boolean l = canConnect(tier, currentState, world.getBlockState(position.relative(offsets.left())), position, position.relative(offsets.left()));
-        boolean r = canConnect(tier, currentState, world.getBlockState(position.relative(offsets.right())), position, position.relative(offsets.right()));
+        boolean u = canConnect(world, position, position.relative(Direction.UP));
+        boolean d = canConnect(world, position, position.relative(Direction.DOWN));
+        boolean l = canConnect(world, position, position.relative(offsets.left()));
+        boolean r = canConnect(world, position, position.relative(offsets.right()));
 
-        boolean ul = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.UP).relative(offsets.left())), position, position.relative(Direction.UP).relative(offsets.left()));
-        boolean ur = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.UP).relative(offsets.right())), position, position.relative(Direction.UP).relative(offsets.right()));
-        boolean dl = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.DOWN).relative(offsets.left())), position, position.relative(Direction.DOWN).relative(offsets.left()));
-        boolean dr = canConnect(tier, currentState, world.getBlockState(position.relative(Direction.DOWN).relative(offsets.right())), position, position.relative(Direction.DOWN).relative(offsets.right()));
+        boolean ul = canConnect(world, position, position.relative(Direction.UP).relative(offsets.left()));
+        boolean ur = canConnect(world, position, position.relative(Direction.UP).relative(offsets.right()));
+        boolean dl = canConnect(world, position, position.relative(Direction.DOWN).relative(offsets.left()));
+        boolean dr = canConnect(world, position, position.relative(Direction.DOWN).relative(offsets.right()));
 
         return fromRawConnections(u, d, l, r, ul, ur, dl, dr);
+    }
+
+    public static boolean canConnect(BlockGetter world, BlockPos currentPos, BlockPos neighborPos) {
+        if (!(world.getBlockEntity(currentPos) instanceof FluidTankBlockEntity current)
+                || !(world.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)
+                || !(current.getBlockState().getBlock() instanceof FluidTankBlock currentTank)
+                || !(neighbor.getBlockState().getBlock() instanceof FluidTankBlock neighborTank)) {
+            return false;
+        }
+        return supportsTier(currentTank.tier()) && supportsTier(neighborTank.tier()) && current.connectsTo(neighbor);
     }
 
     public static boolean canConnect(BlockState currentState, BlockState neighborState, BlockPos currentPos, BlockPos neighborPos) {
@@ -280,6 +292,7 @@ public final class CopperConnectedTextures {
             case GOLD -> "gold";
             case DIAMOND -> "diamond";
             case EMERALD -> "emerald";
+            case NETHERITE -> "netherite";
             default -> throw new IllegalArgumentException("Tank tier " + tier + " does not have connected textures");
         };
     }

@@ -34,4 +34,5 @@ public class FluidTankRenderState extends BlockEntityRenderState {
     public boolean northWest;
     public boolean southEast;
     public boolean southWest;
+    public int wrenchOutlineColor;
 }

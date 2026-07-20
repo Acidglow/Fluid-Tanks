@@ -2,8 +2,12 @@ package acidglow.fluidtanks.tank;
 
 import acidglow.fluidtanks.AcidglowsFluidTanks;
 import com.mojang.serialization.MapCodec;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.stats.Stats;
 import net.minecraft.util.RandomSource;
@@ -12,6 +16,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -33,6 +38,8 @@ import org.jspecify.annotations.Nullable;
 
 public class FluidTankBlock extends BaseEntityBlock {
     private static final VoxelShape SHAPE = Shapes.box(0.0625, 0.0, 0.0625, 0.9375, 1.0, 0.9375);
+    private static final ThreadLocal<BlockPos> PLACEMENT_TARGET = new ThreadLocal<>();
+    private static final Map<UUID, SelectedTank> WRENCH_SELECTIONS = new HashMap<>();
 
     private final FluidTankTier tier;
 
@@ -48,6 +55,20 @@ public class FluidTankBlock extends BaseEntityBlock {
 
     public FluidTankTier tier() {
         return tier;
+    }
+
+    @Override
+    public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
+        BlockPos placedPos = context.getClickedPos();
+        BlockPos clickedPos = context.replacingClickedOnBlock()
+                ? placedPos
+                : placedPos.relative(context.getClickedFace().getOpposite());
+        if (!context.replacingClickedOnBlock() && context.getLevel().getBlockEntity(clickedPos) instanceof FluidTankBlockEntity) {
+            PLACEMENT_TARGET.set(clickedPos);
+        } else {
+            PLACEMENT_TARGET.remove();
+        }
+        return super.getStateForPlacement(context);
     }
 
     @Override
@@ -81,12 +102,19 @@ public class FluidTankBlock extends BaseEntityBlock {
             return InteractionResult.PASS;
         }
 
+        if (hand == InteractionHand.MAIN_HAND && itemStack.getItem() == AcidglowsFluidTanks.WRENCH.get()) {
+            return useWrenchOnTank(level, pos, player, tank);
+        }
+
         if (itemStack.isEmpty()) {
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
 
         boolean handled = FluidUtil.interactWithFluidHandler(player, hand, pos, tank.fluidHandler(), null);
-        return handled ? InteractionResult.SUCCESS : InteractionResult.PASS;
+        if (handled) {
+            return InteractionResult.SUCCESS;
+        }
+        return isFilledFluidContainer(itemStack) ? InteractionResult.SUCCESS : InteractionResult.PASS;
     }
 
     @Override
@@ -101,8 +129,15 @@ public class FluidTankBlock extends BaseEntityBlock {
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack itemStack) {
         super.setPlacedBy(level, pos, state, by, itemStack);
         if (!level.isClientSide()) {
+            BlockPos placementTarget = PLACEMENT_TARGET.get();
+            if (placementTarget != null
+                    && level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank
+                    && level.getBlockEntity(placementTarget) instanceof FluidTankBlockEntity target) {
+                tank.connectByWrench(target);
+            }
             consolidate(level, pos);
         }
+        PLACEMENT_TARGET.remove();
     }
 
     @Override
@@ -155,5 +190,61 @@ public class FluidTankBlock extends BaseEntityBlock {
         if (level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank && tank.networkFluid().getFluid() != Fluids.EMPTY) {
             tank.consolidateNetwork();
         }
+    }
+
+    private static boolean isFilledFluidContainer(ItemStack itemStack) {
+        return !FluidUtil.getFirstStackContained(itemStack).isEmpty();
+    }
+
+    private static InteractionResult useWrenchOnTank(Level level, BlockPos pos, Player player, FluidTankBlockEntity tank) {
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+
+        UUID playerId = player.getUUID();
+        ResourceKey<Level> dimension = level.dimension();
+        SelectedTank selected = WRENCH_SELECTIONS.get(playerId);
+        if (selected == null || selected.dimension() != dimension) {
+            selectTank(playerId, dimension, pos, tank);
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!(level.getBlockEntity(selected.pos()) instanceof FluidTankBlockEntity selectedTank)) {
+            WRENCH_SELECTIONS.remove(playerId);
+            selectTank(playerId, dimension, pos, tank);
+            return InteractionResult.SUCCESS;
+        }
+
+        if (selected.pos().equals(pos)) {
+            selectedTank.clearWrenchOutline();
+            WRENCH_SELECTIONS.remove(playerId);
+            return InteractionResult.SUCCESS;
+        }
+
+        boolean valid = false;
+        if (isAdjacent(selected.pos(), pos)) {
+            valid = selectedTank.isDirectlyConnectedTo(tank)
+                    ? selectedTank.disconnectByWrench(tank)
+                    : selectedTank.connectByWrench(tank);
+        }
+
+        selectedTank.showWrenchResultOutline(valid);
+        tank.showWrenchResultOutline(valid);
+        WRENCH_SELECTIONS.remove(playerId);
+        return InteractionResult.SUCCESS;
+    }
+
+    private static void selectTank(UUID playerId, ResourceKey<Level> dimension, BlockPos pos, FluidTankBlockEntity tank) {
+        WRENCH_SELECTIONS.put(playerId, new SelectedTank(dimension, pos.immutable()));
+        tank.showWrenchSelectionOutline();
+    }
+
+    private static boolean isAdjacent(BlockPos first, BlockPos second) {
+        return Math.abs(first.getX() - second.getX())
+                + Math.abs(first.getY() - second.getY())
+                + Math.abs(first.getZ() - second.getZ()) == 1;
+    }
+
+    private record SelectedTank(ResourceKey<Level> dimension, BlockPos pos) {
     }
 }

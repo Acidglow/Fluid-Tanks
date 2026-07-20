@@ -1,6 +1,7 @@
 package acidglow.fluidtanks;
 
 import acidglow.fluidtanks.tank.FluidTankBlock;
+import acidglow.fluidtanks.tank.FluidTankBlockItem;
 import acidglow.fluidtanks.tank.FluidTankBlockEntity;
 import acidglow.fluidtanks.tank.FluidTankTier;
 import acidglow.fluidtanks.tank.CopperConnectedTextureDebug;
@@ -62,7 +63,7 @@ public class AcidglowsFluidTanks {
                             .isViewBlocking((state, level, pos) -> false)
             ));
             TANK_BLOCKS.put(tier, block);
-            TANK_ITEMS.put(tier, ITEMS.registerSimpleBlockItem(tier.id(), block));
+            TANK_ITEMS.put(tier, ITEMS.registerItem(tier.id(), properties -> new FluidTankBlockItem(block.get(), properties.useBlockDescriptionPrefix())));
         }
     }
 

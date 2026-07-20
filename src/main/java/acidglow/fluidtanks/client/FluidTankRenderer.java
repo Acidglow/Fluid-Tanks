@@ -18,10 +18,10 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jspecify.annotations.Nullable;
 
@@ -65,6 +65,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         state.downTank = connectsToTank(blockEntity, Direction.DOWN);
         state.upFluid = connectsToFluid(blockEntity, Direction.UP, stack.getFluid(), true);
         state.downFluid = connectsToFluid(blockEntity, Direction.DOWN, stack.getFluid(), false);
+        state.wrenchOutlineColor = blockEntity.wrenchOutlineColor();
     }
 
     @Override
@@ -72,6 +73,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         if (state.renderShell) {
             submitShell(state, poseStack, submitNodeCollector);
         }
+
+        submitWrenchOutline(state, poseStack, submitNodeCollector);
 
         if (state.fluid == Fluids.EMPTY || state.fillRatio <= 0.0F) {
             return;
@@ -83,6 +86,12 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
                 RenderTypes.entityTranslucent(texture),
                 (pose, buffer) -> renderConnectedFluid(pose, buffer, state)
         );
+    }
+
+    private static void submitWrenchOutline(FluidTankRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector) {
+        if (state.wrenchOutlineColor != 0) {
+            submitNodeCollector.submitShapeOutline(poseStack, Shapes.block(), RenderTypes.lines(), state.wrenchOutlineColor, 4.0F, false);
+        }
     }
 
     private static void extractShellRenderState(FluidTankBlockEntity blockEntity, FluidTankRenderState state) {
@@ -111,15 +120,14 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         }
 
         BlockPos pos = blockEntity.getBlockPos();
-        BlockState currentState = blockEntity.getBlockState();
         FluidTankTier tier = tankBlock.tier();
         state.renderShell = true;
-        state.downVisible = !canConnect(level, currentState, pos, Direction.DOWN);
-        state.upVisible = !canConnect(level, currentState, pos, Direction.UP);
-        state.northVisible = !canConnect(level, currentState, pos, Direction.NORTH);
-        state.southVisible = !canConnect(level, currentState, pos, Direction.SOUTH);
-        state.westVisible = !canConnect(level, currentState, pos, Direction.WEST);
-        state.eastVisible = !canConnect(level, currentState, pos, Direction.EAST);
+        state.downVisible = !canConnect(level, pos, Direction.DOWN);
+        state.upVisible = !canConnect(level, pos, Direction.UP);
+        state.northVisible = !canConnect(level, pos, Direction.NORTH);
+        state.southVisible = !canConnect(level, pos, Direction.SOUTH);
+        state.westVisible = !canConnect(level, pos, Direction.WEST);
+        state.eastVisible = !canConnect(level, pos, Direction.EAST);
         state.downTexture = CopperConnectedTextures.topBottomTexture(tier);
         state.upTexture = CopperConnectedTextures.topBottomTexture(tier);
         state.northTexture = textureForFace(level, pos, Direction.NORTH, tier);
@@ -228,9 +236,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         return texture;
     }
 
-    private static boolean canConnect(Level level, BlockState currentState, BlockPos pos, Direction direction) {
-        BlockPos neighborPos = pos.relative(direction);
-        return CopperConnectedTextures.canConnect(currentState, level.getBlockState(neighborPos), pos, neighborPos);
+    private static boolean canConnect(Level level, BlockPos pos, Direction direction) {
+        return CopperConnectedTextures.canConnect(level, pos, pos.relative(direction));
     }
 
     private static boolean connectsToTank(FluidTankBlockEntity blockEntity, Direction direction) {
@@ -241,7 +248,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
 
         BlockPos pos = blockEntity.getBlockPos();
         BlockPos neighborPos = pos.relative(direction);
-        return CopperConnectedTextures.canConnect(blockEntity.getBlockState(), level.getBlockState(neighborPos), pos, neighborPos);
+        return CopperConnectedTextures.canConnect(level, pos, neighborPos);
     }
 
     private static boolean connectsToFluid(FluidTankBlockEntity blockEntity, Direction direction, Fluid fluid, boolean above) {
@@ -251,7 +258,7 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         }
 
         BlockPos neighborPos = blockEntity.getBlockPos().relative(direction);
-        if (!CopperConnectedTextures.canConnect(blockEntity.getBlockState(), level.getBlockState(neighborPos), blockEntity.getBlockPos(), neighborPos)
+        if (!CopperConnectedTextures.canConnect(level, blockEntity.getBlockPos(), neighborPos)
                 || !(level.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)) {
             return false;
         }

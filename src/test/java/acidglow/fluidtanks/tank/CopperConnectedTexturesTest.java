@@ -44,6 +44,12 @@ class CopperConnectedTexturesTest {
         assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectSideTexture(FluidTankTier.EMERALD, connections));
     }
 
+    @ParameterizedTest
+    @MethodSource("netheriteTextureStates")
+    void selectsEveryExplicitNetheriteTextureState(CopperConnectedTextures.Connections connections, String expectedFileName) {
+        assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectSideTexture(FluidTankTier.NETHERITE, connections));
+    }
+
     @Test
     void allRawConnectionCombinationsNormalizeToRegisteredTexturesDeterministically() {
         Set<Identifier> reachable = new HashSet<>();
@@ -130,6 +136,23 @@ class CopperConnectedTexturesTest {
     }
 
     @Test
+    void allRawNetheriteConnectionCombinationsNormalizeToRegisteredTexturesDeterministically() {
+        Set<Identifier> reachable = new HashSet<>();
+
+        for (int rawMask = 0; rawMask < 256; rawMask++) {
+            CopperConnectedTextures.Connections connections = rawConnections(rawMask);
+            Identifier first = CopperConnectedTextures.selectSideTexture(FluidTankTier.NETHERITE, connections);
+            Identifier second = CopperConnectedTextures.selectSideTexture(FluidTankTier.NETHERITE, connections);
+
+            assertEquals(first, second);
+            assertTrue(CopperConnectedTextures.registeredSideTextures(FluidTankTier.NETHERITE).contains(first));
+            reachable.add(first);
+        }
+
+        assertEquals(CopperConnectedTextures.registeredSideTextures(FluidTankTier.NETHERITE), reachable);
+    }
+
+    @Test
     void irrelevantDiagonalChangesDoNotChangeSelectedTexture() {
         for (int rawMask = 0; rawMask < 256; rawMask++) {
             Identifier original = CopperConnectedTextures.selectCopperSideTexture(rawConnections(rawMask));
@@ -165,6 +188,7 @@ class CopperConnectedTexturesTest {
         assertEquals(expectedIdentifier("gold_top_bottom_solo.png"), CopperConnectedTextures.GOLD_TOP_BOTTOM_SOLO);
         assertEquals(expectedIdentifier("diamond_top_bottom_solo.png"), CopperConnectedTextures.DIAMOND_TOP_BOTTOM_SOLO);
         assertEquals(expectedIdentifier("emerald_top_bottom_solo.png"), CopperConnectedTextures.EMERALD_TOP_BOTTOM_SOLO);
+        assertEquals(expectedIdentifier("netherite_top_bottom_solo.png"), CopperConnectedTextures.NETHERITE_TOP_BOTTOM_SOLO);
     }
 
     private static Stream<Arguments> textureStates() {
@@ -189,6 +213,11 @@ class CopperConnectedTexturesTest {
 
     private static Stream<Arguments> emeraldTextureStates() {
         return CopperConnectedTextures.textureStates(FluidTankTier.EMERALD).stream()
+                .map(state -> Arguments.of(state.connections(), state.fileName()));
+    }
+
+    private static Stream<Arguments> netheriteTextureStates() {
+        return CopperConnectedTextures.textureStates(FluidTankTier.NETHERITE).stream()
                 .map(state -> Arguments.of(state.connections(), state.fileName()));
     }
 
