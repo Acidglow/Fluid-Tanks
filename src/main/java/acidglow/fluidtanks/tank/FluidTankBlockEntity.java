@@ -1,6 +1,7 @@
 package acidglow.fluidtanks.tank;
 
 import acidglow.fluidtanks.AcidglowsFluidTanks;
+import acidglow.fluidtanks.Config;
 import com.mojang.serialization.Codec;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -102,6 +103,9 @@ public class FluidTankBlockEntity extends BlockEntity {
         if (isBlockedFrom(other.worldPosition) || other.isBlockedFrom(worldPosition)) {
             return false;
         }
+        if (!canConnectTierTo(other)) {
+            return false;
+        }
 
         FluidResource resource = detectNetworkResource();
         if (resource.isEmpty()) {
@@ -114,8 +118,16 @@ public class FluidTankBlockEntity extends BlockEntity {
         return isAdjacentTo(other.worldPosition) && connectsTo(other);
     }
 
+    public boolean hasDirectLinkTo(FluidTankBlockEntity other) {
+        return isAdjacentTo(other.worldPosition) && linkedTanks.contains(other.worldPosition);
+    }
+
     public boolean canWrenchConnectTo(FluidTankBlockEntity other) {
         if (other == this || level == null || other.level != level || !isAdjacentTo(other.worldPosition)) {
+            return false;
+        }
+
+        if (!canConnectTierTo(other)) {
             return false;
         }
 
@@ -155,7 +167,7 @@ public class FluidTankBlockEntity extends BlockEntity {
     }
 
     public boolean disconnectByWrench(FluidTankBlockEntity other) {
-        if (!isDirectlyConnectedTo(other)) {
+        if (!hasDirectLinkTo(other)) {
             return false;
         }
 
@@ -483,8 +495,24 @@ public class FluidTankBlockEntity extends BlockEntity {
         linkedTanks.stream()
                 .filter(this::isAdjacentTo)
                 .filter(pos -> !blockedTanks.contains(pos))
+                .filter(this::canConnectTierAt)
                 .forEach(positions::add);
         return positions;
+    }
+
+    private boolean canConnectTierAt(BlockPos pos) {
+        return level != null && (!(level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) || canConnectTierTo(tank));
+    }
+
+    private boolean canConnectTierTo(FluidTankBlockEntity other) {
+        return Config.TANK_TIERS_CAN_CONNECT.get() || tier() == other.tier();
+    }
+
+    private @Nullable FluidTankTier tier() {
+        if (getBlockState().getBlock() instanceof FluidTankBlock tankBlock) {
+            return tankBlock.tier();
+        }
+        return null;
     }
 
     private static Map<FluidTankBlockEntity, Integer> layeredAmounts(TankNetwork network) {

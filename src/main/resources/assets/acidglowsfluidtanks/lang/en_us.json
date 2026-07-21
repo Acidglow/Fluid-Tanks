@@ -10,5 +10,6 @@
   "acidglowsfluidtanks.configuration.title": "Acidglow's Fluid Tanks Config",
   "acidglowsfluidtanks.configuration.section.acidglowsfluidtanks.common.toml": "Acidglow's Fluid Tanks Config",
   "acidglowsfluidtanks.configuration.section.acidglowsfluidtanks.common.toml.title": "Acidglow's Fluid Tanks Config",
-  "acidglowsfluidtanks.configuration.capacityMultiplier": "Capacity Multiplier"
+  "acidglowsfluidtanks.configuration.capacityMultiplier": "Capacity Multiplier",
+  "acidglowsfluidtanks.configuration.tankTiersCanConnect": "Tank Tiers Can Connect"
 }

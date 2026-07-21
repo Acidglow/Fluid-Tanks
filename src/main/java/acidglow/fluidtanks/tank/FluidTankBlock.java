@@ -240,7 +240,7 @@ public class FluidTankBlock extends BaseEntityBlock {
 
         boolean valid = false;
         if (isAdjacent(selected.pos(), pos)) {
-            valid = selectedTank.isDirectlyConnectedTo(tank)
+            valid = selectedTank.hasDirectLinkTo(tank)
                     ? selectedTank.disconnectByWrench(tank)
                     : selectedTank.connectByWrench(tank);
         }

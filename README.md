@@ -29,6 +29,10 @@ Default capacities:
 
 Capacity can be scaled with the mod config capacity multiplier.
 
+The mod config also includes `tankTiersCanConnect`. When set to `true`, tanks from
+different tiers can connect to the same network. When set to `false`, tanks only
+connect to tanks of the same tier.
+
 ## Tank Networks
 
 Tanks do not automatically connect just because they are adjacent. They join a network only when:
@@ -38,6 +42,8 @@ Tanks do not automatically connect just because they are adjacent. They join a n
 
 Network rules:
 
+- Tank tier compatibility follows `tankTiersCanConnect`: when it is `false`,
+  only tanks of the same tier can connect.
 - Empty tank to empty tank: allowed.
 - Empty tank to liquid tank: allowed.
 - Same liquid to same liquid: allowed.
