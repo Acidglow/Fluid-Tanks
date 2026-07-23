@@ -118,8 +118,41 @@ public class FluidTankBlockEntity extends BlockEntity {
         return isAdjacentTo(other.worldPosition) && connectsTo(other);
     }
 
+    public boolean rendersConnectedTo(FluidTankBlockEntity other) {
+        if (other == this || level == null || other.level != level || !isAdjacentTo(other.worldPosition)) {
+            return false;
+        }
+        if (isBlockedFrom(other.worldPosition) || other.isBlockedFrom(worldPosition) || !canConnectTierTo(other)) {
+            return false;
+        }
+
+        return isInSameVisualNetwork(other);
+    }
+
+    public boolean isInSameVisualNetwork(FluidTankBlockEntity other) {
+        if (other == this) {
+            return true;
+        }
+        if (level == null || other.level != level || !canConnectTierTo(other)) {
+            return false;
+        }
+
+        FluidResource resource = detectNetworkResource();
+        FluidResource otherResource = other.detectNetworkResource();
+        if (resource.isEmpty() && otherResource.isEmpty()) {
+            return isUnclaimedEmpty() && other.isUnclaimedEmpty() && containsTank(emptyNetwork(), other);
+        }
+        return !resource.isEmpty()
+                && Objects.equals(resource, otherResource)
+                && containsTank(network(resource), other);
+    }
+
     public boolean hasDirectLinkTo(FluidTankBlockEntity other) {
         return isAdjacentTo(other.worldPosition) && linkedTanks.contains(other.worldPosition);
+    }
+
+    public boolean canWrenchDisconnectFrom(FluidTankBlockEntity other) {
+        return isAdjacentTo(other.worldPosition) && (hasDirectLinkTo(other) || rendersConnectedTo(other));
     }
 
     public boolean canWrenchConnectTo(FluidTankBlockEntity other) {
@@ -152,13 +185,16 @@ public class FluidTankBlockEntity extends BlockEntity {
         other.unblockFrom(worldPosition);
 
         if (resource.isEmpty()) {
-            for (FluidTankBlockEntity tank : emptyNetwork().tanks()) {
+            TankNetwork network = emptyNetwork();
+            linkAdjacentTanksInNetwork(network.tanks());
+            for (FluidTankBlockEntity tank : network.tanks()) {
                 tank.syncChanged();
             }
             return true;
         }
 
         TankNetwork network = collectNetwork(resource, true);
+        linkAdjacentTanksInNetwork(network.tanks());
         storeOnController(network.tanks(), resource, network.amount());
         for (FluidTankBlockEntity tank : network.tanks()) {
             tank.syncChanged();
@@ -166,19 +202,36 @@ public class FluidTankBlockEntity extends BlockEntity {
         return true;
     }
 
+    public boolean connectByPlacement(FluidTankBlockEntity target) {
+        return connectByWrench(target);
+    }
+
     public boolean disconnectByWrench(FluidTankBlockEntity other) {
-        if (!hasDirectLinkTo(other)) {
+        if (!canWrenchDisconnectFrom(other)) {
             return false;
         }
 
         FluidResource resource = detectNetworkResource();
         if (resource.isEmpty()) {
+            TankNetwork network = emptyNetwork();
+            if (network.tanks().size() >= 3) {
+                disconnectFromNetwork(network, FluidResource.EMPTY);
+                return true;
+            }
+
+            unlinkFrom(other.worldPosition);
+            other.unlinkFrom(worldPosition);
             blockFrom(other.worldPosition);
             other.blockFrom(worldPosition);
             return true;
         }
 
         TankNetwork network = network(resource);
+        if (network.tanks().size() >= 3) {
+            disconnectFromNetwork(network, resource);
+            return true;
+        }
+
         Map<FluidTankBlockEntity, Integer> localAmounts = layeredAmounts(network);
         List<FluidTankBlockEntity> networkTanks = network.tanks();
 
@@ -500,6 +553,71 @@ public class FluidTankBlockEntity extends BlockEntity {
         return positions;
     }
 
+    private void linkAdjacentTanksInNetwork(List<FluidTankBlockEntity> networkTanks) {
+        Map<BlockPos, FluidTankBlockEntity> byPos = new HashMap<>();
+        for (FluidTankBlockEntity tank : networkTanks) {
+            byPos.put(tank.worldPosition, tank);
+        }
+
+        for (FluidTankBlockEntity tank : networkTanks) {
+            for (Direction direction : Direction.values()) {
+                FluidTankBlockEntity neighbor = byPos.get(tank.worldPosition.relative(direction));
+                if (neighbor != null && tank.canLinkInsideNetwork(neighbor)) {
+                    tank.linkTo(neighbor.worldPosition);
+                    neighbor.linkTo(tank.worldPosition);
+                }
+            }
+        }
+    }
+
+    private boolean canLinkInsideNetwork(FluidTankBlockEntity other) {
+        return isAdjacentTo(other.worldPosition)
+                && !isBlockedFrom(other.worldPosition)
+                && !other.isBlockedFrom(worldPosition)
+                && canConnectTierTo(other);
+    }
+
+    private void disconnectFromNetwork(TankNetwork network, FluidResource resource) {
+        List<FluidTankBlockEntity> networkTanks = network.tanks();
+        Map<FluidTankBlockEntity, Integer> localAmounts = resource.isEmpty() ? Map.of() : layeredAmounts(network);
+
+        unlinkDirectNetworkLinks(networkTanks);
+        if (resource.isEmpty()) {
+            return;
+        }
+
+        for (FluidTankBlockEntity tank : networkTanks) {
+            tank.setFluidDirect(FluidStack.EMPTY, FluidResource.EMPTY);
+        }
+
+        for (TankNetwork group : remainingGroups(networkTanks)) {
+            int groupAmount = group.tanks().stream()
+                    .mapToInt(tank -> localAmounts.getOrDefault(tank, 0))
+                    .sum();
+            if (groupAmount > 0) {
+                storeOnController(group.tanks(), resource, groupAmount);
+            }
+        }
+    }
+
+    private void unlinkDirectNetworkLinks(List<FluidTankBlockEntity> networkTanks) {
+        Map<BlockPos, FluidTankBlockEntity> byPos = new HashMap<>();
+        for (FluidTankBlockEntity tank : networkTanks) {
+            byPos.put(tank.worldPosition, tank);
+        }
+
+        Set<BlockPos> links = Set.copyOf(linkedTanks);
+        for (BlockPos linkedPos : links) {
+            FluidTankBlockEntity linkedTank = byPos.get(linkedPos);
+            if (linkedTank != null) {
+                unlinkFrom(linkedPos);
+                linkedTank.unlinkFrom(worldPosition);
+                blockFrom(linkedPos);
+                linkedTank.blockFrom(worldPosition);
+            }
+        }
+    }
+
     private boolean canConnectTierAt(BlockPos pos) {
         return level != null && (!(level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) || canConnectTierTo(tank));
     }
@@ -570,6 +688,10 @@ public class FluidTankBlockEntity extends BlockEntity {
             FluidStack next = tank == controller && storedAmount > 0 ? resource.toStack(storedAmount) : FluidStack.EMPTY;
             tank.setFluidDirect(next, storedAmount > 0 ? resource : FluidResource.EMPTY);
         }
+    }
+
+    private static boolean containsTank(TankNetwork network, FluidTankBlockEntity target) {
+        return network.tanks().stream().anyMatch(tank -> tank.worldPosition.equals(target.worldPosition));
     }
 
     private static List<TankNetwork> remainingGroups(List<FluidTankBlockEntity> tanks) {

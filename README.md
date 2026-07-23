@@ -44,6 +44,8 @@ Network rules:
 
 - Tank tier compatibility follows `tankTiersCanConnect`: when it is `false`,
   only tanks of the same tier can connect.
+- A tank placed into an existing network links to the targeted tank and to any
+  adjacent compatible tanks that are already part of that network.
 - Empty tank to empty tank: allowed.
 - Empty tank to liquid tank: allowed.
 - Same liquid to same liquid: allowed.

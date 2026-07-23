@@ -2,12 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GTG",
-    "TAT",
-    "GTG"
+    "ATA",
+    "T T",
+    "ATA"
   ],
   "key": {
-    "G": "minecraft:glass",
     "T": "minecraft:emerald",
     "A": "acidglowsfluidtanks:diamond_fluid_tank"
   },

@@ -147,7 +147,7 @@ public class FluidTankBlock extends BaseEntityBlock {
             if (placementTarget != null
                     && level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank
                     && level.getBlockEntity(placementTarget) instanceof FluidTankBlockEntity target) {
-                tank.connectByWrench(target);
+                tank.connectByPlacement(target);
             }
             consolidate(level, pos);
             if (level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) {
@@ -240,7 +240,7 @@ public class FluidTankBlock extends BaseEntityBlock {
 
         boolean valid = false;
         if (isAdjacent(selected.pos(), pos)) {
-            valid = selectedTank.hasDirectLinkTo(tank)
+            valid = selectedTank.canWrenchDisconnectFrom(tank)
                     ? selectedTank.disconnectByWrench(tank)
                     : selectedTank.connectByWrench(tank);
         }

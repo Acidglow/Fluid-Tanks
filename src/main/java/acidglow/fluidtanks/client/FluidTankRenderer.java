@@ -312,9 +312,9 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
             return false;
         }
 
-        BlockPos pos = blockEntity.getBlockPos();
-        BlockPos neighborPos = pos.relative(direction);
-        return CopperConnectedTextures.canConnect(level, pos, neighborPos);
+        BlockPos neighborPos = blockEntity.getBlockPos().relative(direction);
+        return level.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor
+                && blockEntity.rendersConnectedTo(neighbor);
     }
 
     private static boolean connectsToFluid(FluidTankBlockEntity blockEntity, Direction direction, Fluid fluid, boolean above) {
@@ -324,8 +324,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         }
 
         BlockPos neighborPos = blockEntity.getBlockPos().relative(direction);
-        if (!CopperConnectedTextures.canConnect(level, blockEntity.getBlockPos(), neighborPos)
-                || !(level.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)) {
+        if (!(level.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)
+                || !blockEntity.rendersConnectedTo(neighbor)) {
             return false;
         }
 

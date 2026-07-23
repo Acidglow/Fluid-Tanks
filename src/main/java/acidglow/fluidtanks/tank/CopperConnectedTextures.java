@@ -99,7 +99,9 @@ public final class CopperConnectedTextures {
                 || !(neighbor.getBlockState().getBlock() instanceof FluidTankBlock neighborTank)) {
             return false;
         }
-        return supportsTier(currentTank.tier()) && supportsTier(neighborTank.tier()) && current.connectsTo(neighbor);
+        return supportsTier(currentTank.tier())
+                && supportsTier(neighborTank.tier())
+                && current.isInSameVisualNetwork(neighbor);
     }
 
     public static boolean canConnect(BlockState currentState, BlockState neighborState, BlockPos currentPos, BlockPos neighborPos) {

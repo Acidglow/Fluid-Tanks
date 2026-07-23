@@ -3,12 +3,13 @@
   "category": "misc",
   "pattern": [
     "GCG",
-    "C C",
+    "CBC",
     "GCG"
   ],
   "key": {
     "G": "minecraft:glass",
-    "C": "minecraft:copper_ingot"
+    "C": "minecraft:copper_ingot",
+    "B": "minecraft:barrel"
   },
   "result": {
     "id": "acidglowsfluidtanks:copper_fluid_tank"

@@ -2,12 +2,12 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GIG",
+    "AIA",
     "I I",
-    "GIG"
+    "AIA"
   ],
   "key": {
-    "G": "minecraft:glass",
+    "A": "acidglowsfluidtanks:copper_fluid_tank",
     "I": "minecraft:iron_ingot"
   },
   "result": {
