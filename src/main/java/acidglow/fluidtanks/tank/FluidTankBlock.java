@@ -143,6 +143,9 @@ public class FluidTankBlock extends BaseEntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack itemStack) {
         super.setPlacedBy(level, pos, state, by, itemStack);
+        if (level.isClientSide() && level.getBlockEntity(pos) instanceof FluidTankBlockEntity tank) {
+            tank.beginClientPlacementPrediction(PLACEMENT_TARGET.get());
+        }
         if (!level.isClientSide()) {
             BlockPos placementTarget = PLACEMENT_TARGET.get();
             if (placementTarget != null

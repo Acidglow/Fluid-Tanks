@@ -49,6 +49,7 @@ public class FluidTankBlockEntity extends BlockEntity {
     private static final int WRENCH_OUTLINE_VALID_COLOR = 0xFF35E060;
     private static final int WRENCH_OUTLINE_INVALID_COLOR = 0xFFFF4040;
     private static final int WRENCH_OUTLINE_DURATION_TICKS = 20;
+    private static final long CLIENT_PLACEMENT_PREDICTION_TICKS = 10L;
 
     private FluidStack fluid = FluidStack.EMPTY;
     private FluidStack networkFluid = FluidStack.EMPTY;
@@ -57,6 +58,8 @@ public class FluidTankBlockEntity extends BlockEntity {
     private final Set<BlockPos> blockedTanks = new HashSet<>();
     private int wrenchOutlineColor;
     private long wrenchOutlineExpiresAt;
+    private long clientPlacementPredictionExpiresAt = Long.MIN_VALUE;
+    private @Nullable BlockPos clientPlacementPredictionTarget;
     private final NetworkFluidHandler fluidHandler = new NetworkFluidHandler(this);
 
     public FluidTankBlockEntity(BlockPos pos, BlockState blockState) {
@@ -126,7 +129,16 @@ public class FluidTankBlockEntity extends BlockEntity {
             return false;
         }
 
-        return isInSameVisualNetwork(other);
+        return isInSameVisualNetwork(other)
+                || hasClientPlacementPredictionFor(other)
+                || other.hasClientPlacementPredictionFor(this);
+    }
+
+    public void beginClientPlacementPrediction(@Nullable BlockPos target) {
+        if (level != null && level.isClientSide() && target != null && isAdjacentTo(target)) {
+            clientPlacementPredictionTarget = target.immutable();
+            clientPlacementPredictionExpiresAt = level.getGameTime() + CLIENT_PLACEMENT_PREDICTION_TICKS;
+        }
     }
 
     public boolean isInSameVisualNetwork(FluidTankBlockEntity other) {
@@ -167,6 +179,14 @@ public class FluidTankBlockEntity extends BlockEntity {
         FluidResource resource = networkResource();
         FluidResource otherResource = other.networkResource();
         return resource.isEmpty() || otherResource.isEmpty() || Objects.equals(resource, otherResource);
+    }
+
+    private boolean hasClientPlacementPredictionFor(FluidTankBlockEntity other) {
+        return level != null
+                && level.isClientSide()
+                && level.getGameTime() <= clientPlacementPredictionExpiresAt
+                && other.worldPosition.equals(clientPlacementPredictionTarget)
+                && canWrenchConnectTo(other);
     }
 
     public boolean connectByWrench(FluidTankBlockEntity other) {
