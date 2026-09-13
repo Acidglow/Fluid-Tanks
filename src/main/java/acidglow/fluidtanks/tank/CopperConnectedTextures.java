@@ -1,6 +1,7 @@
 package acidglow.fluidtanks.tank;
 
 import acidglow.fluidtanks.AcidglowsFluidTanks;
+import acidglow.fluidtanks.Config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class CopperConnectedTextures {
@@ -53,10 +55,6 @@ public final class CopperConnectedTextures {
     private CopperConnectedTextures() {
     }
 
-    public static Identifier selectCopperSideTexture(Connections connections) {
-        return selectSideTexture(FluidTankTier.COPPER, connections);
-    }
-
     public static Identifier selectSideTexture(FluidTankTier tier, Connections connections) {
         TierTextures textures = tierTextures(tier);
         Connections normalized = connections.normalized();
@@ -66,14 +64,6 @@ public final class CopperConnectedTextures {
                     + normalized.cardinalMask() + " and missing-corner mask " + normalized.missingCornerMask());
         }
         return texture;
-    }
-
-    public static Connections readConnections(BlockGetter world, BlockPos position, Direction face) {
-        BlockState currentState = world.getBlockState(position);
-        if (!(currentState.getBlock() instanceof FluidTankBlock tankBlock)) {
-            return new Connections(false, false, false, false, false, false, false, false);
-        }
-        return readConnections(world, position, face, tankBlock.tier());
     }
 
     public static Connections readConnections(BlockGetter world, BlockPos position, Direction face, FluidTankTier tier) {
@@ -93,30 +83,24 @@ public final class CopperConnectedTextures {
     }
 
     public static boolean canConnect(BlockGetter world, BlockPos currentPos, BlockPos neighborPos) {
-        if (!(world.getBlockEntity(currentPos) instanceof FluidTankBlockEntity current)
-                || !(world.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity neighbor)
-                || !(current.getBlockState().getBlock() instanceof FluidTankBlock currentTank)
-                || !(neighbor.getBlockState().getBlock() instanceof FluidTankBlock neighborTank)) {
+        if (!(world.getBlockState(currentPos).getBlock() instanceof FluidTankBlock currentTank)
+                || !(world.getBlockState(neighborPos).getBlock() instanceof FluidTankBlock neighborTank)
+                || !supportsTier(currentTank.tier())
+                || !supportsTier(neighborTank.tier())) {
             return false;
         }
-        return supportsTier(currentTank.tier())
-                && supportsTier(neighborTank.tier())
-                && current.isInSameVisualNetwork(neighbor);
-    }
 
-    public static boolean canConnect(BlockState currentState, BlockState neighborState, BlockPos currentPos, BlockPos neighborPos) {
-        if (!(currentState.getBlock() instanceof FluidTankBlock currentTank)) {
-            return false;
+        FluidTankBlockEntity current = world.getBlockEntity(currentPos) instanceof FluidTankBlockEntity tank ? tank : null;
+        FluidTankBlockEntity neighbor = world.getBlockEntity(neighborPos) instanceof FluidTankBlockEntity tank ? tank : null;
+        if (current == null || neighbor == null) {
+            // A client receives the block state before its block-entity data. Keep the shell
+            // seamless for that brief transition; the authoritative network data follows.
+            return world instanceof Level level
+                    && level.isClientSide()
+                    && (Config.TANK_TIERS_CAN_CONNECT.get() || currentTank.tier() == neighborTank.tier());
         }
-        return canConnect(currentTank.tier(), currentState, neighborState, currentPos, neighborPos);
-    }
 
-    public static boolean canConnect(FluidTankTier tier, BlockState currentState, BlockState neighborState, BlockPos currentPos, BlockPos neighborPos) {
-        if (!(currentState.getBlock() instanceof FluidTankBlock currentTank)
-                || !(neighborState.getBlock() instanceof FluidTankBlock neighborTank)) {
-            return false;
-        }
-        return currentTank.tier() == tier && neighborTank.tier() == tier && supportsTier(tier);
+        return current.rendersConnectedTo(neighbor);
     }
 
     public static FaceOffsets getFaceLocalOffsets(Direction face) {

@@ -8,6 +8,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.stats.Stats;
 import net.minecraft.util.RandomSource;
@@ -254,6 +255,19 @@ public class FluidTankBlock extends BaseEntityBlock {
     private static void selectTank(UUID playerId, ResourceKey<Level> dimension, BlockPos pos, FluidTankBlockEntity tank) {
         WRENCH_SELECTIONS.put(playerId, new SelectedTank(dimension, pos.immutable()));
         tank.showWrenchSelectionOutline();
+    }
+
+    public static void clearWrenchSelection(Player player) {
+        SelectedTank selected = WRENCH_SELECTIONS.remove(player.getUUID());
+        if (selected == null) {
+            return;
+        }
+
+        MinecraftServer server = player.level() instanceof ServerLevel currentLevel ? currentLevel.getServer() : null;
+        ServerLevel level = server == null ? null : server.getLevel(selected.dimension());
+        if (level != null && level.getBlockEntity(selected.pos()) instanceof FluidTankBlockEntity tank) {
+            tank.clearWrenchOutline();
+        }
     }
 
     private static boolean isAdjacent(BlockPos first, BlockPos second) {

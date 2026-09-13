@@ -46,6 +46,8 @@ Network rules:
   only tanks of the same tier can connect.
 - A tank placed into an existing network links to the targeted tank and to any
   adjacent compatible tanks that are already part of that network.
+- Joining two networks links every pair of compatible adjacent tanks in the
+  resulting network.
 - Empty tank to empty tank: allowed.
 - Empty tank to liquid tank: allowed.
 - Same liquid to same liquid: allowed.
@@ -57,22 +59,31 @@ Network rules:
 Use the Wrench in your main hand:
 
 1. Right-click a tank to select it. The selected tank gets a yellow outline.
-2. Right-click an adjacent tank to connect or disconnect it.
+2. Right-click an adjacent tank to connect its network, or disconnect the first
+   selected tank from its current network.
 3. Valid actions flash both tanks green.
 4. Invalid actions flash both tanks red.
 5. Right-click the selected tank again to clear the selection.
 
 Only adjacent tanks can be selected as the second target.
 
+When disconnecting from a network of three or more tanks, every direct link
+from the first selected tank is removed. A two-tank network is split at the
+selected connection.
+
 ## Building
 
 Requirements:
 
-- Java compatible with the configured NeoForge toolchain.
+- Java 25.
 - Minecraft `26.2`.
-- NeoForge `26.2.0.23-beta`.
+- NeoForge `26.2.0.82`.
 
 Build the mod jar:
+
+```bash
+./gradlew build
+```
 
 ```powershell
 .\gradlew.bat build
@@ -81,5 +92,9 @@ Build the mod jar:
 The jar is written to:
 
 ```text
-build/libs/acidglowsfluidtanks-1.0.0.jar
+build/libs/acidglowsfluidtanks-1.0.3.jar
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

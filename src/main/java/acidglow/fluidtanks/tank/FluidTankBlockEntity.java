@@ -152,7 +152,7 @@ public class FluidTankBlockEntity extends BlockEntity {
     }
 
     public boolean canWrenchDisconnectFrom(FluidTankBlockEntity other) {
-        return isAdjacentTo(other.worldPosition) && (hasDirectLinkTo(other) || rendersConnectedTo(other));
+        return isAdjacentTo(other.worldPosition) && isInSameVisualNetwork(other);
     }
 
     public boolean canWrenchConnectTo(FluidTankBlockEntity other) {
@@ -563,6 +563,11 @@ public class FluidTankBlockEntity extends BlockEntity {
             for (Direction direction : Direction.values()) {
                 FluidTankBlockEntity neighbor = byPos.get(tank.worldPosition.relative(direction));
                 if (neighbor != null && tank.canLinkInsideNetwork(neighbor)) {
+                    // A wrench merge explicitly joins these networks.  Any block marker left
+                    // by an earlier split must not keep an adjacent pair separated once both
+                    // tanks are part of the merged network.
+                    tank.unblockFrom(neighbor.worldPosition);
+                    neighbor.unblockFrom(tank.worldPosition);
                     tank.linkTo(neighbor.worldPosition);
                     neighbor.linkTo(tank.worldPosition);
                 }
@@ -572,8 +577,6 @@ public class FluidTankBlockEntity extends BlockEntity {
 
     private boolean canLinkInsideNetwork(FluidTankBlockEntity other) {
         return isAdjacentTo(other.worldPosition)
-                && !isBlockedFrom(other.worldPosition)
-                && !other.isBlockedFrom(worldPosition)
                 && canConnectTierTo(other);
     }
 
@@ -923,6 +926,9 @@ public class FluidTankBlockEntity extends BlockEntity {
             checkIndex(index);
             TransferPreconditions.checkNonEmptyNonNegative(resource, amount);
             if (amount == 0) {
+                return 0;
+            }
+            if (!isValid(index, resource)) {
                 return 0;
             }
 

@@ -4,7 +4,6 @@ import acidglow.fluidtanks.tank.FluidTankBlock;
 import acidglow.fluidtanks.tank.FluidTankBlockItem;
 import acidglow.fluidtanks.tank.FluidTankBlockEntity;
 import acidglow.fluidtanks.tank.FluidTankTier;
-import acidglow.fluidtanks.tank.CopperConnectedTextureDebug;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
@@ -24,9 +23,10 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -91,7 +91,8 @@ public class AcidglowsFluidTanks {
         CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::registerCapabilities);
-        NeoForge.EVENT_BUS.addListener(CopperConnectedTextureDebug::registerCommands);
+        NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class, event -> FluidTankBlock.clearWrenchSelection(event.getEntity()));
+        NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerChangedDimensionEvent.class, event -> FluidTankBlock.clearWrenchSelection(event.getEntity()));
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 

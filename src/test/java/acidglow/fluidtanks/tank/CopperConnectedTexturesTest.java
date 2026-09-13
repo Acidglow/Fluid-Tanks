@@ -17,7 +17,7 @@ class CopperConnectedTexturesTest {
     @ParameterizedTest
     @MethodSource("textureStates")
     void selectsEveryExplicitTextureState(CopperConnectedTextures.Connections connections, String expectedFileName) {
-        assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectCopperSideTexture(connections));
+        assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, connections));
     }
 
     @ParameterizedTest
@@ -56,8 +56,8 @@ class CopperConnectedTexturesTest {
 
         for (int rawMask = 0; rawMask < 256; rawMask++) {
             CopperConnectedTextures.Connections connections = rawConnections(rawMask);
-            Identifier first = CopperConnectedTextures.selectCopperSideTexture(connections);
-            Identifier second = CopperConnectedTextures.selectCopperSideTexture(connections);
+            Identifier first = CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, connections);
+            Identifier second = CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, connections);
 
             assertEquals(first, second);
             assertTrue(CopperConnectedTextures.registeredSideTextures().contains(first));
@@ -155,13 +155,13 @@ class CopperConnectedTexturesTest {
     @Test
     void irrelevantDiagonalChangesDoNotChangeSelectedTexture() {
         for (int rawMask = 0; rawMask < 256; rawMask++) {
-            Identifier original = CopperConnectedTextures.selectCopperSideTexture(rawConnections(rawMask));
+            Identifier original = CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, rawConnections(rawMask));
 
             for (int diagonalBit = 4; diagonalBit < 8; diagonalBit++) {
                 if (isRelevant(rawMask, diagonalBit)) {
                     continue;
                 }
-                Identifier changed = CopperConnectedTextures.selectCopperSideTexture(rawConnections(rawMask ^ (1 << diagonalBit)));
+                Identifier changed = CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, rawConnections(rawMask ^ (1 << diagonalBit)));
                 assertEquals(original, changed);
             }
         }
@@ -170,7 +170,7 @@ class CopperConnectedTexturesTest {
     @ParameterizedTest
     @MethodSource("requiredExamples")
     void selectsRequiredExamples(CopperConnectedTextures.Connections connections, String expectedFileName) {
-        assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectCopperSideTexture(connections));
+        assertEquals(expectedIdentifier(expectedFileName), CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, connections));
     }
 
     @Test
