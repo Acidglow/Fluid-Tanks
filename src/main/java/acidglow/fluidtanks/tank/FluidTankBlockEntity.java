@@ -402,23 +402,17 @@ public class FluidTankBlockEntity extends BlockEntity {
 
         Map<FluidTankBlockEntity, Integer> localAmounts = layeredAmounts(network);
         int removedAmount = localAmounts.getOrDefault(this, 0);
-        int remainingAmount = network.amount() - removedAmount;
-
         removalDropFluid = removedAmount > 0 ? resource.toStack(removedAmount) : FluidStack.EMPTY;
-        unlinkFromAllTanks();
+        List<TankNetwork> groups = groupsAfterRemoving(network.tanks());
 
-        List<FluidTankBlockEntity> remainingTanks = network.tanks().stream()
-                .filter(tank -> tank != this)
-                .toList();
+        // Keep the change atomic.  Updating a linked tank one at a time causes block-update
+        // callbacks to observe a temporarily incomplete network and can overwrite its stored
+        // amount before the remaining groups have been rebuilt.
+        unlinkFromNetworkWithoutSync(network.tanks());
         for (FluidTankBlockEntity tank : network.tanks()) {
-            tank.setFluidDirect(FluidStack.EMPTY, FluidResource.EMPTY);
+            tank.setFluidWithoutSync(FluidStack.EMPTY, FluidResource.EMPTY);
         }
 
-        if (remainingAmount <= 0 || remainingTanks.isEmpty()) {
-            return;
-        }
-
-        List<TankNetwork> groups = remainingGroups(remainingTanks);
         for (TankNetwork group : groups) {
             int groupAmount = group.tanks().stream()
                     .mapToInt(tank -> localAmounts.getOrDefault(tank, 0))
@@ -426,6 +420,10 @@ public class FluidTankBlockEntity extends BlockEntity {
             if (groupAmount > 0) {
                 storeOnController(group.tanks(), resource, groupAmount);
             }
+        }
+
+        for (FluidTankBlockEntity tank : network.tanks()) {
+            tank.syncChanged();
         }
     }
 
@@ -701,6 +699,14 @@ public class FluidTankBlockEntity extends BlockEntity {
     }
 
     private static void storeOnController(List<FluidTankBlockEntity> tanks, FluidResource resource, int amount) {
+        store(tanks, resource, amount, true);
+    }
+
+    private static void storeInTransaction(List<FluidTankBlockEntity> tanks, FluidResource resource, int amount) {
+        store(tanks, resource, amount, false);
+    }
+
+    private static void store(List<FluidTankBlockEntity> tanks, FluidResource resource, int amount, boolean sync) {
         if (tanks.isEmpty()) {
             return;
         }
@@ -709,7 +715,12 @@ public class FluidTankBlockEntity extends BlockEntity {
         FluidTankBlockEntity controller = tanks.stream().min(Comparator.comparing(FluidTankBlockEntity::getBlockPos)).orElseThrow();
         for (FluidTankBlockEntity tank : tanks) {
             FluidStack next = tank == controller && storedAmount > 0 ? resource.toStack(storedAmount) : FluidStack.EMPTY;
-            tank.setFluidDirect(next, storedAmount > 0 ? resource : FluidResource.EMPTY);
+            FluidResource nextResource = storedAmount > 0 ? resource : FluidResource.EMPTY;
+            if (sync) {
+                tank.setFluidDirect(next, nextResource);
+            } else {
+                tank.setFluidWithoutSync(next, nextResource);
+            }
         }
     }
 
@@ -758,13 +769,87 @@ public class FluidTankBlockEntity extends BlockEntity {
         return groups;
     }
 
+    private List<TankNetwork> groupsAfterRemoving(List<FluidTankBlockEntity> networkTanks) {
+        List<FluidTankBlockEntity> remainingTanks = networkTanks.stream()
+                .filter(tank -> tank != this)
+                .toList();
+        Map<BlockPos, FluidTankBlockEntity> byPos = new HashMap<>();
+        for (FluidTankBlockEntity tank : remainingTanks) {
+            byPos.put(tank.worldPosition, tank);
+        }
+
+        List<TankNetwork> groups = new ArrayList<>();
+        Set<BlockPos> seen = new HashSet<>();
+        for (FluidTankBlockEntity start : remainingTanks) {
+            if (!seen.add(start.worldPosition)) {
+                continue;
+            }
+
+            ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+            List<FluidTankBlockEntity> groupTanks = new ArrayList<>();
+            queue.add(start.worldPosition);
+            while (!queue.isEmpty()) {
+                BlockPos current = queue.removeFirst();
+                FluidTankBlockEntity tank = byPos.get(current);
+                if (tank == null) {
+                    continue;
+                }
+
+                groupTanks.add(tank);
+                for (BlockPos next : tank.connectedPositions()) {
+                    if (byPos.containsKey(next) && seen.add(next)) {
+                        queue.add(next);
+                    }
+                }
+            }
+
+            groupTanks.sort(Comparator.comparing(FluidTankBlockEntity::getBlockPos));
+            int capacity = groupTanks.stream().mapToInt(FluidTankBlockEntity::capacity).sum();
+            groups.add(new TankNetwork(groupTanks, 0, capacity));
+        }
+
+        groups.sort(Comparator.comparing(group -> group.tanks().getFirst().getBlockPos()));
+        return groups;
+    }
+
+    private void unlinkFromNetworkWithoutSync(List<FluidTankBlockEntity> networkTanks) {
+        Set<BlockPos> networkPositions = networkTanks.stream()
+                .map(tank -> tank.worldPosition)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<BlockPos> links = Set.copyOf(linkedTanks);
+        Set<BlockPos> blocked = Set.copyOf(blockedTanks);
+        linkedTanks.clear();
+        blockedTanks.clear();
+
+        if (level == null) {
+            return;
+        }
+
+        for (BlockPos linkedPos : links) {
+            if (networkPositions.contains(linkedPos)
+                    && level.getBlockEntity(linkedPos) instanceof FluidTankBlockEntity linkedTank) {
+                linkedTank.linkedTanks.remove(worldPosition);
+            }
+        }
+        for (BlockPos blockedPos : blocked) {
+            if (level.getBlockEntity(blockedPos) instanceof FluidTankBlockEntity blockedTank) {
+                blockedTank.blockedTanks.remove(worldPosition);
+            }
+        }
+    }
+
     private void setFluidDirect(FluidStack next, FluidResource networkResource) {
-        FluidStack nextNetworkFluid = networkResource.isEmpty() ? FluidStack.EMPTY : networkResource.toStack(1);
-        if (!FluidStack.matches(fluid, next) || !FluidStack.matches(networkFluid, nextNetworkFluid)) {
-            fluid = next.copy();
-            networkFluid = nextNetworkFluid.copy();
+        if (!FluidStack.matches(fluid, next)
+                || !FluidStack.matches(networkFluid, networkResource.isEmpty() ? FluidStack.EMPTY : networkResource.toStack(1))) {
+            setFluidWithoutSync(next, networkResource);
             syncChanged();
         }
+    }
+
+    private void setFluidWithoutSync(FluidStack next, FluidResource networkResource) {
+        FluidStack nextNetworkFluid = networkResource.isEmpty() ? FluidStack.EMPTY : networkResource.toStack(1);
+        fluid = next.copy();
+        networkFluid = nextNetworkFluid.copy();
     }
 
     private void setNetworkFluidDirect(FluidResource networkResource) {
@@ -965,7 +1050,7 @@ public class FluidTankBlockEntity extends BlockEntity {
 
             snapshotTarget = current.isEmpty() ? FluidResource.EMPTY : resource;
             updateSnapshots(transaction);
-            storeOnController(network.tanks(), resource, network.amount() + inserted);
+            storeInTransaction(network.tanks(), resource, network.amount() + inserted);
             snapshotTarget = null;
             return inserted;
         }
@@ -991,7 +1076,7 @@ public class FluidTankBlockEntity extends BlockEntity {
 
             snapshotTarget = current;
             updateSnapshots(transaction);
-            storeOnController(network.tanks(), current, network.amount() - extracted);
+            storeInTransaction(network.tanks(), current, network.amount() - extracted);
             snapshotTarget = null;
             return extracted;
         }
@@ -1024,9 +1109,10 @@ public class FluidTankBlockEntity extends BlockEntity {
 
             for (Map.Entry<BlockPos, FluidStack> entry : snapshot.fluids().entrySet()) {
                 if (level.getBlockEntity(entry.getKey()) instanceof FluidTankBlockEntity tank) {
-                    tank.fluid = entry.getValue().copy();
-                    tank.networkFluid = snapshot.networkFluids().getOrDefault(entry.getKey(), FluidStack.EMPTY).copy();
-                    tank.syncChanged();
+                    tank.setFluidWithoutSync(
+                            entry.getValue(),
+                            FluidResource.of(snapshot.networkFluids().getOrDefault(entry.getKey(), FluidStack.EMPTY))
+                    );
                 }
             }
         }

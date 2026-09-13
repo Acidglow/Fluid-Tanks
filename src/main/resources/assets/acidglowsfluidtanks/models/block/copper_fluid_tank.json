@@ -2,7 +2,7 @@
   "parent": "minecraft:block/cube_column",
   "render_type": "minecraft:translucent",
   "textures": {
-    "end": "acidglowsfluidtanks:block/copper_top_bottom_solo",
+    "end": "acidglowsfluidtanks:block/copper_side_solo",
     "side": "acidglowsfluidtanks:block/copper_side_solo"
   }
 }

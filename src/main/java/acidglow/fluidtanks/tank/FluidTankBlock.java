@@ -125,6 +125,10 @@ public class FluidTankBlock extends BaseEntityBlock {
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
 
+        if (level.isClientSide()) {
+            return isFilledFluidContainer(itemStack) ? InteractionResult.SUCCESS : InteractionResult.PASS;
+        }
+
         boolean handled = FluidUtil.interactWithFluidHandler(player, hand, pos, tank.fluidHandler(), null);
         if (handled) {
             return InteractionResult.SUCCESS;
