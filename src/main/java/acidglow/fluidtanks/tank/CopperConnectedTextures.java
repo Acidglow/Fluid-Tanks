@@ -69,15 +69,15 @@ public final class CopperConnectedTextures {
     public static Connections readConnections(BlockGetter world, BlockPos position, Direction face, FluidTankTier tier) {
         FaceOffsets offsets = getFaceLocalOffsets(face);
 
-        boolean u = canConnect(world, position, position.relative(Direction.UP));
-        boolean d = canConnect(world, position, position.relative(Direction.DOWN));
+        boolean u = canConnect(world, position, position.relative(offsets.up()));
+        boolean d = canConnect(world, position, position.relative(offsets.down()));
         boolean l = canConnect(world, position, position.relative(offsets.left()));
         boolean r = canConnect(world, position, position.relative(offsets.right()));
 
-        boolean ul = canConnect(world, position, position.relative(Direction.UP).relative(offsets.left()));
-        boolean ur = canConnect(world, position, position.relative(Direction.UP).relative(offsets.right()));
-        boolean dl = canConnect(world, position, position.relative(Direction.DOWN).relative(offsets.left()));
-        boolean dr = canConnect(world, position, position.relative(Direction.DOWN).relative(offsets.right()));
+        boolean ul = canConnect(world, position, position.relative(offsets.up()).relative(offsets.left()));
+        boolean ur = canConnect(world, position, position.relative(offsets.up()).relative(offsets.right()));
+        boolean dl = canConnect(world, position, position.relative(offsets.down()).relative(offsets.left()));
+        boolean dr = canConnect(world, position, position.relative(offsets.down()).relative(offsets.right()));
 
         return fromRawConnections(u, d, l, r, ul, ur, dl, dr);
     }
@@ -109,7 +109,8 @@ public final class CopperConnectedTextures {
             case SOUTH -> new FaceOffsets(Direction.UP, Direction.DOWN, Direction.WEST, Direction.EAST);
             case EAST -> new FaceOffsets(Direction.UP, Direction.DOWN, Direction.SOUTH, Direction.NORTH);
             case WEST -> new FaceOffsets(Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH);
-            default -> throw new IllegalArgumentException("Connected copper side textures only support vertical faces: " + face);
+            case UP -> new FaceOffsets(Direction.SOUTH, Direction.NORTH, Direction.WEST, Direction.EAST);
+            case DOWN -> new FaceOffsets(Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST);
         };
     }
 

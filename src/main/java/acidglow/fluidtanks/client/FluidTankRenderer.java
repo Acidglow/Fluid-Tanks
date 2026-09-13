@@ -107,8 +107,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
 
     private static void extractShellRenderState(FluidTankBlockEntity blockEntity, FluidTankRenderState state) {
         state.renderShell = false;
-        state.downTexture = CopperConnectedTextures.COPPER_TOP_BOTTOM_SOLO;
-        state.upTexture = CopperConnectedTextures.COPPER_TOP_BOTTOM_SOLO;
+        state.downTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
+        state.upTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
         state.northTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
         state.southTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
         state.westTexture = CopperConnectedTextures.COPPER_SIDE_SOLO;
@@ -139,8 +139,8 @@ public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEnti
         state.southVisible = !canConnect(level, pos, Direction.SOUTH);
         state.westVisible = !canConnect(level, pos, Direction.WEST);
         state.eastVisible = !canConnect(level, pos, Direction.EAST);
-        state.downTexture = CopperConnectedTextures.topBottomTexture(tier);
-        state.upTexture = CopperConnectedTextures.topBottomTexture(tier);
+        state.downTexture = textureForFace(level, pos, Direction.DOWN, tier);
+        state.upTexture = textureForFace(level, pos, Direction.UP, tier);
         state.northTexture = textureForFace(level, pos, Direction.NORTH, tier);
         state.southTexture = textureForFace(level, pos, Direction.SOUTH, tier);
         state.westTexture = textureForFace(level, pos, Direction.WEST, tier);

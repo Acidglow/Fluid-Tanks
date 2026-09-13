@@ -174,21 +174,24 @@ class CopperConnectedTexturesTest {
     }
 
     @Test
-    void verticalFaceOffsetsPreserveVisualLeftAndRight() {
-        assertOffsets(Direction.NORTH, Direction.EAST, Direction.WEST);
-        assertOffsets(Direction.SOUTH, Direction.WEST, Direction.EAST);
-        assertOffsets(Direction.EAST, Direction.SOUTH, Direction.NORTH);
-        assertOffsets(Direction.WEST, Direction.NORTH, Direction.SOUTH);
+    void faceOffsetsPreserveVisualAxes() {
+        assertOffsets(Direction.NORTH, Direction.UP, Direction.DOWN, Direction.EAST, Direction.WEST);
+        assertOffsets(Direction.SOUTH, Direction.UP, Direction.DOWN, Direction.WEST, Direction.EAST);
+        assertOffsets(Direction.EAST, Direction.UP, Direction.DOWN, Direction.SOUTH, Direction.NORTH);
+        assertOffsets(Direction.WEST, Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH);
+        assertOffsets(Direction.UP, Direction.SOUTH, Direction.NORTH, Direction.WEST, Direction.EAST);
+        assertOffsets(Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST);
     }
 
     @Test
-    void topAndBottomUseDedicatedNonConnectedTexture() {
-        assertEquals(expectedIdentifier("copper_top_bottom_solo.png"), CopperConnectedTextures.COPPER_TOP_BOTTOM_SOLO);
-        assertEquals(expectedIdentifier("iron_top_bottom_solo.png"), CopperConnectedTextures.IRON_TOP_BOTTOM_SOLO);
-        assertEquals(expectedIdentifier("gold_top_bottom_solo.png"), CopperConnectedTextures.GOLD_TOP_BOTTOM_SOLO);
-        assertEquals(expectedIdentifier("diamond_top_bottom_solo.png"), CopperConnectedTextures.DIAMOND_TOP_BOTTOM_SOLO);
-        assertEquals(expectedIdentifier("emerald_top_bottom_solo.png"), CopperConnectedTextures.EMERALD_TOP_BOTTOM_SOLO);
-        assertEquals(expectedIdentifier("netherite_top_bottom_solo.png"), CopperConnectedTextures.NETHERITE_TOP_BOTTOM_SOLO);
+    void horizontalFacesUseTheSameConnectedTextureSet() {
+        CopperConnectedTextures.Connections solo = CopperConnectedTextures.fromRawConnections(false, false, false, false, false, false, false, false);
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.COPPER), CopperConnectedTextures.selectSideTexture(FluidTankTier.COPPER, solo));
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.IRON), CopperConnectedTextures.selectSideTexture(FluidTankTier.IRON, solo));
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.GOLD), CopperConnectedTextures.selectSideTexture(FluidTankTier.GOLD, solo));
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.DIAMOND), CopperConnectedTextures.selectSideTexture(FluidTankTier.DIAMOND, solo));
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.EMERALD), CopperConnectedTextures.selectSideTexture(FluidTankTier.EMERALD, solo));
+        assertEquals(CopperConnectedTextures.sideSoloTexture(FluidTankTier.NETHERITE), CopperConnectedTextures.selectSideTexture(FluidTankTier.NETHERITE, solo));
     }
 
     private static Stream<Arguments> textureStates() {
@@ -309,10 +312,16 @@ class CopperConnectedTexturesTest {
         };
     }
 
-    private static void assertOffsets(Direction face, Direction expectedLeft, Direction expectedRight) {
+    private static void assertOffsets(
+            Direction face,
+            Direction expectedUp,
+            Direction expectedDown,
+            Direction expectedLeft,
+            Direction expectedRight
+    ) {
         CopperConnectedTextures.FaceOffsets offsets = CopperConnectedTextures.getFaceLocalOffsets(face);
-        assertEquals(Direction.UP, offsets.up());
-        assertEquals(Direction.DOWN, offsets.down());
+        assertEquals(expectedUp, offsets.up());
+        assertEquals(expectedDown, offsets.down());
         assertEquals(expectedLeft, offsets.left());
         assertEquals(expectedRight, offsets.right());
     }
